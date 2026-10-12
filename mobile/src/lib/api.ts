@@ -145,6 +145,11 @@ export type Notification = {
   read: number;
 };
 
+export type ProcessStatus = {
+  running: boolean;
+  last: { ok: boolean; result?: { problemas: number; propuestas: number }; error?: string; finished_at: string } | null;
+};
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);
@@ -224,6 +229,7 @@ export const api = {
   activities: () => request<Activity[]>('/activities'),
   sync: () => post<{ changes: number }>('/sync'),
   runAnalysis: () => post<{ status: string }>('/analysis/run'),
+  analysisStatus: () => request<ProcessStatus>('/analysis/status'),
   proposals: (status?: string) => request<Proposal[]>(`/proposals${status ? `?status=${status}` : ''}`),
   proposal: (id: number) => request<Proposal>(`/proposals/${id}`),
   approve: (id: number, comment?: string) => post<{ status: string }>(`/proposals/${id}/approve`, { comment }),
