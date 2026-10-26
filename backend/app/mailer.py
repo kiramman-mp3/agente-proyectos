@@ -3,7 +3,7 @@
 Transportes (MAIL_TRANSPORT):
   smtp         Gmail u otro servidor SMTP con contraseña de aplicación (credencial cifrada 'smtp_password').
   apps_script  Webhook HTTPS de Google Apps Script que envía desde la cuenta de Gmail del gestor
-               (credencial 'mail_webhook_secret'). Necesario en Render gratuito, que bloquea los puertos SMTP.
+               (credencial 'mail_webhook_secret'). Útil en hostings que bloquean los puertos SMTP.
 """
 import html
 import logging

@@ -46,8 +46,19 @@ def process_status(name: str) -> dict:
 
 # ---------------------------------------------------------------- Trello / seguimiento
 
+_sync_lock = threading.Lock()
+
+
 def sync_board(actor: str = SYSTEM) -> dict:
-    """REQ-01/02/03: consulta Trello, calcula estados/avance y detecta cambios en la planificación."""
+    """REQ-01/02/03: consulta Trello, calcula estados/avance y detecta cambios en la planificación.
+
+    Las sincronizaciones se serializan: el planificador, el botón de la app y la ejecución de una propuesta pueden
+    coincidir, y cada una lee y reescribe el mismo estado."""
+    with _sync_lock:
+        return _sync_board(actor)
+
+
+def _sync_board(actor: str) -> dict:
     board = TrelloClient().fetch_board()
     activities = tracking.build_activities(board)
     summary = tracking.summarize(activities)
@@ -227,32 +238,39 @@ def run_delay_analysis(actor: str = SYSTEM) -> dict:
 
 # ---------------------------------------------------------------- Decisiones del gestor (REQ-09)
 
-def _require_pending(pid: int) -> dict:
+def _claim_pending(pid: int, new_status: str, **fields) -> dict:
+    """Pasa una propuesta de 'pendiente_gestor' a `new_status` de forma atómica.
+
+    El UPDATE condicionado garantiza que, aunque lleguen dos decisiones a la vez (doble toque, dos gestores),
+    solo una gane y la acción no se ejecute dos veces."""
     p = get_proposal(pid)
     if not p:
         raise LookupError(f"La propuesta #{pid} no existe")
-    if p["status"] != "pendiente_gestor":
-        raise ValueError(f"La propuesta #{pid} no está pendiente de decisión (estado: {p['status']})")
+    values = {**fields, "status": new_status, "updated_at": db.now_iso()}
+    sets = ", ".join(f"{k} = ?" for k in values)
+    changed = db.execute_count(f"UPDATE proposals SET {sets} WHERE id = ? AND status = 'pendiente_gestor'",
+                               (*values.values(), pid))
+    if changed != 1:
+        current = (get_proposal(pid) or p)["status"]
+        raise ValueError(f"La propuesta #{pid} no está pendiente de decisión (estado: {current})")
     return p
 
 
 def manager_approve(pid: int, user: str, comment: str | None = None) -> str:
-    _require_pending(pid)
-    _set(pid, status="aprobada", manager=user, manager_comment=comment, decided_at=db.now_iso())
+    _claim_pending(pid, "aprobada", manager=user, manager_comment=comment, decided_at=db.now_iso())
     audit.log(user, "gestor_aprueba", "propuesta", pid, {"comentario": comment}, actor_type="humano")
     return execute_proposal(pid, user)
 
 
 def manager_reject(pid: int, user: str, comment: str | None = None) -> str:
-    _require_pending(pid)
-    _set(pid, status="rechazada_gestor", manager=user, manager_comment=comment, decided_at=db.now_iso())
+    _claim_pending(pid, "rechazada_gestor", manager=user, manager_comment=comment, decided_at=db.now_iso())
     audit.log(user, "gestor_rechaza", "propuesta", pid, {"comentario": comment}, actor_type="humano")
     return "rechazada_gestor"
 
 
 def manager_request_changes(pid: int, user: str, comment: str) -> None:
-    p = _require_pending(pid)
-    _set(pid, status="modificacion_solicitada", manager=user, manager_comment=comment, decided_at=db.now_iso())
+    p = _claim_pending(pid, "modificacion_solicitada", manager=user, manager_comment=comment,
+                       decided_at=db.now_iso())
     audit.log(user, "gestor_solicita_modificacion", "propuesta", pid, {"comentario": comment}, actor_type="humano")
     threading.Thread(target=_revise_for_manager, args=(p, comment), daemon=True).start()
 

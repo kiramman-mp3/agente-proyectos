@@ -1,6 +1,7 @@
 """Ejecución de acciones AUTORIZADAS. Es el único módulo que escribe en Trello o GitHub, y solo
 acepta propuestas en estado 'aprobada' (por el gestor) o con decisión automática del Aprobador.
 Nunca modifica el código fuente: para el repositorio solo crea issues."""
+import re
 from datetime import datetime
 
 from .config import settings
@@ -16,6 +17,23 @@ class ExecutionError(RuntimeError):
 
 def _norm(s) -> str:
     return (s or "").strip().lower()
+
+
+COMMENT_MAX_CHARS = 400
+
+
+def safe_comment(text) -> str:
+    """Limpia el texto de un comentario generado por IA antes de publicarlo sin revisión humana.
+
+    Las tarjetas contienen texto externo que podría inducir al modelo a escribir enlaces o menciones, así que se
+    quitan las URL y las menciones (que además notifican a otras personas), se aplanan los saltos de línea y se
+    limita la longitud."""
+    clean = re.sub(r"https?://\S+|www\.\S+", "[enlace omitido]", str(text or ""))
+    clean = clean.replace("@", "")
+    clean = re.sub(r"\s+", " ", clean).strip()
+    if not clean:
+        raise ExecutionError("El comentario quedó vacío tras la limpieza")
+    return clean[:COMMENT_MAX_CHARS]
 
 
 def _to_trello_date(value: str) -> str:
@@ -68,7 +86,7 @@ def execute(p: dict, board_meta: dict, current_card: dict | None) -> str:
         return f"Tarjeta movida a la lista '{target['name']}'"
 
     if action == "comentar":
-        trello.add_comment(card_id, f"🤖 Agente de seguimiento: {params['text']}")
+        trello.add_comment(card_id, f"🤖 Agente de seguimiento: {safe_comment(params.get('text'))}")
         return "Comentario agregado en la tarjeta"
 
     raise ExecutionError(f"Acción no soportada: {action}")

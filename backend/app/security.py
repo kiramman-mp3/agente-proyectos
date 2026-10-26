@@ -96,9 +96,15 @@ def create_token(user: dict) -> str:
     payload = {
         "sub": user["username"],
         "role": user["role"],
+        "ver": user.get("token_version") or 0,
         "exp": datetime.now(timezone.utc) + timedelta(hours=settings.jwt_expire_hours),
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
+
+
+def bump_token_version(user_id: int) -> None:
+    """Invalida todas las sesiones abiertas de un usuario."""
+    db.execute("UPDATE users SET token_version = COALESCE(token_version, 0) + 1 WHERE id = ?", (user_id,))
 
 
 _bearer = HTTPBearer(auto_error=False)
@@ -111,10 +117,13 @@ def current_user(creds: HTTPAuthorizationCredentials | None = Depends(_bearer)) 
         payload = jwt.decode(creds.credentials, settings.jwt_secret, algorithms=["HS256"])
     except jwt.PyJWTError:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Sesión inválida o expirada")
-    user = db.query_one("SELECT id, username, role, full_name, email, active, must_change_password FROM users "
-                        "WHERE username = ?", (payload["sub"],))
+    user = db.query_one("SELECT id, username, role, full_name, email, active, must_change_password, token_version "
+                        "FROM users WHERE username = ?", (payload["sub"],))
     if not user or not user["active"]:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Usuario inactivo")
+    # Cambiar o restablecer la contraseña sube la versión y deja sin efecto los tokens emitidos antes.
+    if (payload.get("ver") or 0) != (user["token_version"] or 0):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Sesión inválida o expirada")
     return user
 
 
