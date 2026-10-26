@@ -109,3 +109,58 @@ def test_bootstrap_from_environment(monkeypatch):
     monkeypatch.setenv("BOOTSTRAP_PASSWORD", "otra-clave-22")
     bootstrap.run()
     assert verify_password("clave-segura-1", db.query_one("SELECT password_hash FROM users")["password_hash"])
+
+
+def test_llm_falls_back_to_secondary_provider(monkeypatch):
+    import httpx
+    import pytest
+    from app import llm
+    from app.config import settings
+    calls = []
+
+    class Resp:
+        def __init__(self, status, content=""):
+            self.status_code, self._c, self.text = status, content, "err"
+        def json(self):
+            return {"choices": [{"message": {"content": self._c}}]}
+
+    def fake_post(url, headers, json, timeout):
+        calls.append((url, json["model"]))
+        return Resp(402) if "openrouter.ai" in url else Resp(200, '{"ok": true}')
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    monkeypatch.setattr(llm.time, "sleep", lambda s: None)
+    set_secret("openrouter_api_key", "or-key")
+    set_secret("gemini_api_key", "g-key")
+    monkeypatch.setattr(settings, "llm_provider", "openrouter")
+    monkeypatch.setattr(settings, "llm_fallback_provider", "gemini")
+    monkeypatch.setattr(settings, "model_reviewer", "google/gemini-3.5-flash")
+    monkeypatch.setattr(settings, "fallback_model_reviewer", "gemini-3.5-flash")
+
+    assert llm.chat_json("google/gemini-3.5-flash", "s", "u") == {"ok": True}
+    assert "openrouter.ai" in calls[0][0] and "generativelanguage" in calls[-1][0]
+    assert calls[-1][1] == "gemini-3.5-flash"
+
+    # Sin respaldo, el fallo del principal se propaga.
+    monkeypatch.setattr(settings, "llm_fallback_provider", "")
+    with pytest.raises(llm.LLMError):
+        llm.chat_json("google/gemini-3.5-flash", "s", "u")
+
+
+def test_fallback_triggers_when_primary_credential_is_missing(monkeypatch):
+    import httpx
+    from app import llm
+    from app.config import settings
+
+    class Resp:
+        status_code = 200
+        def json(self):
+            return {"choices": [{"message": {"content": "hola"}}]}
+
+    monkeypatch.setattr(httpx, "post", lambda *a, **k: Resp())
+    set_secret("gemini_api_key", "g-key")  # falta openrouter_api_key
+    monkeypatch.setattr(settings, "llm_provider", "openrouter")
+    monkeypatch.setattr(settings, "llm_fallback_provider", "gemini")
+    monkeypatch.setattr(settings, "fallback_model_reviewer", "gemini-3.5-flash")
+    monkeypatch.setattr(settings, "model_reviewer", "x/y")
+    assert llm.chat_text("x/y", "s", [{"role": "user", "content": "hi"}]) == "hola"

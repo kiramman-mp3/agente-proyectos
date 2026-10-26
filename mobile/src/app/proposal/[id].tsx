@@ -5,7 +5,7 @@ import { Alert, TextInput, View } from 'react-native';
 import { Badge, Body, Button, Card, ErrorBox, Loading, Row, Screen, Section, Title, useLoader } from '@/components/ui';
 import { api, Proposal } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { ACTION_LABEL, fmtDate, PROPOSAL_STATUS_LABEL, proposalColor, useTheme } from '@/lib/theme';
+import { F, RADIUS, ACTION_LABEL, fmtDate, PROPOSAL_STATUS_LABEL, proposalColor, useTheme } from '@/lib/theme';
 
 function describeParams(p: Proposal): string[] {
   const x = p.params as Record<string, any>;
@@ -94,7 +94,7 @@ export default function ProposalDetail() {
         <Title style={{ fontSize: 18 }}>{ACTION_LABEL[p.action_type] ?? p.action_type}</Title>
         <Body>{p.target_name ?? 'Repositorio'}</Body>
         {describeParams(p).map((line, i) => (
-          <Body key={i} style={{ fontWeight: i === 0 ? '600' : '400' }}>{line}</Body>
+          <Body key={i} style={{ ...(i === 0 ? F.semi : F.regular) }}>{line}</Body>
         ))}
       </Card>
 
@@ -146,8 +146,8 @@ export default function ProposalDetail() {
             placeholderTextColor={t.muted}
             multiline
             style={{
-              minHeight: 80, borderWidth: 1, borderColor: t.border, borderRadius: 10, padding: 10,
-              color: t.text, backgroundColor: t.card, textAlignVertical: 'top',
+              minHeight: 80, borderWidth: 1, borderColor: t.border, borderRadius: RADIUS.control, padding: 10,
+              ...F.regular, color: t.text, backgroundColor: t.card, textAlignVertical: 'top',
             }}
           />
           <Row>
@@ -167,7 +167,7 @@ export default function ProposalDetail() {
             <View key={h.id} style={{ flexDirection: 'row', gap: 8 }}>
               <Body muted style={{ width: 92 }}>{fmtDate(h.ts, true)}</Body>
               <Body style={{ flex: 1 }}>
-                <Body style={{ fontWeight: '600' }}>{h.actor}</Body> · {h.action.replace(/_/g, ' ')}
+                <Body style={{ ...F.semi }}>{h.actor}</Body> · {h.action.replace(/_/g, ' ')}
               </Body>
             </View>
           ))}

@@ -1,4 +1,5 @@
-import { useFocusEffect } from 'expo-router';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { router, useFocusEffect } from 'expo-router';
 import { ReactNode, useCallback, useState } from 'react';
 import {
   ActivityIndicator,
@@ -6,13 +7,17 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  Text,
   TextStyle,
   View,
   ViewStyle,
 } from 'react-native';
 
-import { useTheme } from '@/lib/theme';
+import { F, RADIUS, statusColor, useTheme } from '@/lib/theme';
+
+import { Text } from './Text';
+
+/** Ancho máximo del contenido: en tablets y ventanas grandes se centra en vez de estirarse. */
+export const CONTENT_MAX_WIDTH = 760;
 
 /** Carga datos al enfocar la pantalla y permite refrescar con gesto. */
 export function useLoader<T>(fn: () => Promise<T>) {
@@ -44,33 +49,75 @@ export function useLoader<T>(fn: () => Promise<T>) {
   return { data, error, refreshing, refresh, reload: load };
 }
 
+/** Botón flotante que abre el asistente; se ancla a la esquina inferior derecha del área de contenido. */
+export function ChatFab() {
+  const t = useTheme();
+  return (
+    <Pressable
+      onPress={() => router.push('/chat')}
+      accessibilityLabel="Abrir el asistente"
+      style={({ pressed }) => [
+        styles.fab,
+        { backgroundColor: t.primary, shadowColor: '#000' },
+        pressed && { opacity: 0.85, transform: [{ scale: 0.96 }] },
+      ]}
+    >
+      <Ionicons name="chatbubble-ellipses" size={26} color={t.primaryText} />
+    </Pressable>
+  );
+}
+
 export function Screen({
   children,
   refreshing,
   onRefresh,
+  chatFab,
 }: {
   children: ReactNode;
   refreshing?: boolean;
   onRefresh?: () => void;
+  chatFab?: boolean;
 }) {
   const t = useTheme();
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: t.bg }}
-      contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 32 }}
-      refreshControl={onRefresh ? <RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} /> : undefined}
-    >
-      {children}
-    </ScrollView>
+    <View style={{ flex: 1, backgroundColor: t.bg }}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          padding: 16, gap: 12, paddingBottom: chatFab ? 96 : 32,
+          width: '100%', maxWidth: CONTENT_MAX_WIDTH, alignSelf: 'center',
+        }}
+        refreshControl={onRefresh ? <RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} /> : undefined}
+      >
+        {children}
+      </ScrollView>
+      {chatFab && <ChatFab />}
+    </View>
   );
 }
 
-export function Card({ children, style, onPress }: { children: ReactNode; style?: ViewStyle; onPress?: () => void }) {
+/** `accent` pinta una franja lateral con el color del estado de la tarjeta. */
+export function Card({
+  children,
+  style,
+  onPress,
+  accent,
+}: {
+  children: ReactNode;
+  style?: ViewStyle;
+  onPress?: () => void;
+  accent?: string;
+}) {
   const t = useTheme();
-  const base = [styles.card, { backgroundColor: t.card, borderColor: t.border }, style];
+  const base = [
+    styles.card,
+    { backgroundColor: t.card, borderColor: t.border },
+    accent ? { borderLeftWidth: 4, borderLeftColor: accent } : null,
+    style,
+  ];
   if (!onPress) return <View style={base}>{children}</View>;
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [...base, pressed && { opacity: 0.7 }]}>
+    <Pressable onPress={onPress} style={({ pressed }) => [...base, pressed && { opacity: 0.75 }]}>
       {children}
     </Pressable>
   );
@@ -78,7 +125,7 @@ export function Card({ children, style, onPress }: { children: ReactNode; style?
 
 export function Title({ children, style }: { children: ReactNode; style?: TextStyle }) {
   const t = useTheme();
-  return <Text style={[{ color: t.text, fontSize: 16, fontWeight: '600' }, style]}>{children}</Text>;
+  return <Text style={[{ color: t.text, fontSize: 16, lineHeight: 22, ...F.semi }, style]}>{children}</Text>;
 }
 
 export function Body({ children, muted, style }: { children: ReactNode; muted?: boolean; style?: TextStyle }) {
@@ -89,17 +136,36 @@ export function Body({ children, muted, style }: { children: ReactNode; muted?: 
 export function Section({ children }: { children: ReactNode }) {
   const t = useTheme();
   return (
-    <Text style={{ color: t.muted, fontSize: 12, fontWeight: '700', letterSpacing: 0.6, marginTop: 8 }}>
-      {(Array.isArray(children) ? children.join('') : String(children)).toUpperCase()}
+    <Text style={{ color: t.text, fontSize: 17, letterSpacing: -0.2, marginTop: 14, ...F.bold }}>
+      {Array.isArray(children) ? children.join('') : String(children)}
     </Text>
   );
 }
 
+/** Sello: etiqueta rectangular con borde del color del estado. */
 export function Badge({ label, color }: { label: string; color: string }) {
   return (
     <View style={[styles.badge, { borderColor: color }]}>
-      <View style={[styles.dot, { backgroundColor: color }]} />
-      <Text style={{ color, fontSize: 12, fontWeight: '600' }}>{label}</Text>
+      <Text style={{ color, fontSize: 12, letterSpacing: 0.2, ...F.semi }}>{label}</Text>
+    </View>
+  );
+}
+
+const RIBBON_ORDER = ['completada', 'en_ejecucion', 'pendiente', 'bloqueada', 'retrasada'] as const;
+
+/** Cinta segmentada: cada tramo mide lo que pesa su estado dentro del total de actividades. */
+export function StatusRibbon({ counts }: { counts: Record<string, number> }) {
+  const t = useTheme();
+  const parts = RIBBON_ORDER.filter((k) => (counts[k] ?? 0) > 0);
+  return (
+    <View
+      style={{ flexDirection: 'row', gap: 2, height: 14, width: '100%' }}
+      accessibilityLabel={parts.map((k) => `${counts[k]} ${k.replace('_', ' ')}`).join(', ')}
+    >
+      {parts.length === 0 && <View style={{ flex: 1, backgroundColor: t.track, borderRadius: 2 }} />}
+      {parts.map((k) => (
+        <View key={k} style={{ flex: counts[k], backgroundColor: statusColor(t, k), borderRadius: 2 }} />
+      ))}
     </View>
   );
 }
@@ -109,7 +175,7 @@ export function ProgressBar({ value, color }: { value: number; color?: string })
   const pct = Math.max(0, Math.min(100, value));
   return (
     <View style={[styles.track, { backgroundColor: t.track }]}>
-      <View style={{ width: `${pct}%`, height: '100%', borderRadius: 4, backgroundColor: color ?? t.primary }} />
+      <View style={{ width: `${pct}%`, height: '100%', borderRadius: 3, backgroundColor: color ?? t.primary }} />
     </View>
   );
 }
@@ -140,7 +206,7 @@ export function Button({
         (pressed || disabled) && { opacity: 0.6 },
       ]}
     >
-      {loading ? <ActivityIndicator color={fg} /> : <Text style={{ color: fg, fontWeight: '600' }}>{label}</Text>}
+      {loading ? <ActivityIndicator color={fg} /> : <Text style={{ color: fg, fontSize: 15, ...F.semi }}>{label}</Text>}
     </Pressable>
   );
 }
@@ -148,7 +214,7 @@ export function Button({
 export function ErrorBox({ message }: { message: string }) {
   const t = useTheme();
   return (
-    <Card style={{ borderColor: t.danger }}>
+    <Card accent={t.danger}>
       <Body style={{ color: t.danger }}>{message}</Body>
     </Card>
   );
@@ -156,7 +222,7 @@ export function ErrorBox({ message }: { message: string }) {
 
 export function Empty({ text }: { text: string }) {
   return (
-    <Card style={{ alignItems: 'center', paddingVertical: 24 }}>
+    <Card style={{ paddingVertical: 20 }}>
       <Body muted>{text}</Body>
     </Card>
   );
@@ -176,23 +242,33 @@ export function Row({ children, style }: { children: ReactNode; style?: ViewStyl
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, padding: 14, gap: 6 },
+  card: { borderRadius: RADIUS.card, borderWidth: 1, padding: 14, gap: 6 },
   badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 8,
+    borderWidth: 1.5,
+    borderRadius: RADIUS.stamp,
+    paddingHorizontal: 7,
     paddingVertical: 2,
     alignSelf: 'flex-start',
   },
-  dot: { width: 7, height: 7, borderRadius: 4 },
-  track: { height: 8, borderRadius: 4, overflow: 'hidden', width: '100%' },
+  fab: {
+    position: 'absolute',
+    right: 16,
+    bottom: 16,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 6,
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  track: { height: 6, borderRadius: 3, overflow: 'hidden', width: '100%' },
   button: {
     flex: 1,
-    minHeight: 44,
-    borderRadius: 10,
+    minHeight: 46,
+    borderRadius: RADIUS.control,
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',

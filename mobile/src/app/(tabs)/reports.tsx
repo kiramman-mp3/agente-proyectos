@@ -26,7 +26,7 @@ export default function ReportsScreen() {
 
   if (!data && !error) return <Loading />;
   return (
-    <Screen refreshing={refreshing} onRefresh={refresh}>
+    <Screen refreshing={refreshing} onRefresh={refresh} chatFab>
       {canDecide && (
         <Row>
           <Button label="Generar reporte ahora" onPress={generate} loading={busy} />
