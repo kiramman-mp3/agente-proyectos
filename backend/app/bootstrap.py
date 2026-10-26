@@ -1,4 +1,4 @@
-"""Inicialización desde variables de entorno para despliegues en la nube (p. ej. Render), donde el disco
+"""Inicialización desde variables de entorno para despliegues en la nube (p. ej. Azure App Service), donde el disco
 puede ser efímero: en cada arranque se cifran las credenciales en la base y se asegura el usuario inicial.
 
 Variables reconocidas (todas opcionales):
