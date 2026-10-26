@@ -29,7 +29,7 @@ export default function CodeScreen() {
   const scoreColor = (s: number) => (s >= 80 ? t.success : s >= 60 ? t.warning : t.danger);
 
   return (
-    <Screen refreshing={refreshing} onRefresh={refresh}>
+    <Screen refreshing={refreshing} onRefresh={refresh} chatFab>
       <Card>
         <Body muted>
           El agente analiza los cambios del repositorio y genera recomendaciones. Nunca modifica el código: los
