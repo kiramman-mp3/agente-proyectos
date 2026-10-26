@@ -136,6 +136,8 @@ export type CodeReview = CodeReviewSummary & {
 export type ReportSummary = { id: number; created_at: string; period_start: string; period_end: string };
 export type Report = ReportSummary & { content_md: string; review_notes: string };
 
+export type ChatMessage = { role: 'user' | 'assistant'; content: string };
+
 export type Notification = {
   id: number;
   created_at: string;
@@ -226,6 +228,7 @@ const post = <T,>(path: string, body: object = {}) =>
   request<T>(path, { method: 'POST', body: JSON.stringify(body) });
 
 export const api = {
+  chat: (messages: ChatMessage[]) => post<{ reply: string }>('/chat', { messages }),
   dashboard: () => request<Dashboard>('/dashboard'),
   activities: () => request<Activity[]>('/activities'),
   sync: () => post<{ changes: number }>('/sync'),

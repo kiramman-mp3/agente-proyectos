@@ -1,13 +1,14 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useNavigation } from 'expo-router';
 import { useLayoutEffect, useState } from 'react';
-import { Alert, Linking, Pressable, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, View } from 'react-native';
+import { Text } from '@/components/Text';
 
 import { ActivityCard } from '@/components/ActivityCard';
-import { Badge, Body, Button, Card, ErrorBox, Loading, ProgressBar, Row, Screen, Section, Title, useLoader } from '@/components/ui';
+import { Badge, Body, Button, Card, ErrorBox, Loading, Row, Screen, Section, StatusRibbon, Title, useLoader } from '@/components/ui';
 import { api, ActivityStatus } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { fmtDate, STATUS_LABEL, statusColor, useTheme } from '@/lib/theme';
+import { F, fmtDate, STATUS_LABEL, statusColor, useTheme } from '@/lib/theme';
 
 const ORDER: ActivityStatus[] = ['completada', 'en_ejecucion', 'pendiente', 'retrasada', 'bloqueada'];
 
@@ -31,7 +32,7 @@ export default function DashboardScreen() {
                   borderRadius: 8, minWidth: 16, paddingHorizontal: 3, alignItems: 'center',
                 }}
               >
-                <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>{data.unread_notifications}</Text>
+                <Text style={{ color: '#fff', fontSize: 10, ...F.bold }}>{data.unread_notifications}</Text>
               </View>
             )}
           </Pressable>
@@ -64,49 +65,52 @@ export default function DashboardScreen() {
   const missing = Object.entries(data?.credentials ?? {}).filter(([, ok]) => !ok).map(([k]) => k);
 
   return (
-    <Screen refreshing={refreshing} onRefresh={refresh}>
+    <Screen refreshing={refreshing} onRefresh={refresh} chatFab>
       {error && <ErrorBox message={error} />}
       {missing.length > 0 && <ErrorBox message={`Faltan credenciales en el servidor: ${missing.join(', ')}`} />}
 
       {data && (
-        <Card onPress={data.board.url ? () => Linking.openURL(data.board.url!) : undefined}>
-          <Body muted>Tablero</Body>
-          <Title style={{ fontSize: 20 }}>{data.board.name ?? 'Sin sincronizar'}</Title>
-          <Body muted>Última sincronización: {fmtDate(data.last_sync, true)}</Body>
-        </Card>
+        <Pressable onPress={data.board.url ? () => Linking.openURL(data.board.url!) : undefined} style={{ gap: 2 }}>
+          <Title style={{ fontSize: 22, letterSpacing: -0.4, ...F.bold }}>{data.board.name ?? 'Sin sincronizar'}</Title>
+          <Body muted>Sincronizado {fmtDate(data.last_sync, true)}</Body>
+        </Pressable>
       )}
 
       {s ? (
-        <Card>
-          <Row style={{ justifyContent: 'space-between' }}>
-            <Title>Avance general</Title>
-            <Text style={{ color: t.text, fontSize: 28, fontWeight: '700' }}>{s.progress_weighted}%</Text>
+        <View style={{ gap: 12, marginVertical: 4 }}>
+          <Row style={{ alignItems: 'flex-end', gap: 12, flexWrap: 'nowrap' }}>
+            <Text style={{ color: t.text, fontSize: 64, lineHeight: 64, letterSpacing: -3, ...F.bold }}>
+              {s.progress_weighted}%
+            </Text>
+            <Body muted style={{ flex: 1, paddingBottom: 6 }}>
+              de avance. {s.counts.completada} de {s.total} actividades completadas ({s.progress_completed}%).
+            </Body>
           </Row>
-          <ProgressBar value={s.progress_weighted} />
-          <Body muted>
-            {s.counts.completada} de {s.total} actividades completadas ({s.progress_completed}%)
-          </Body>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
+          <StatusRibbon counts={s.counts} />
+          <View>
             {ORDER.map((st) => (
-              <View
+              <Row
                 key={st}
                 style={{
-                  flexGrow: 1, minWidth: '28%', borderRadius: 10, padding: 10,
-                  borderWidth: 1, borderColor: t.border,
+                  justifyContent: 'space-between', flexWrap: 'nowrap', paddingVertical: 8,
+                  borderBottomWidth: 1, borderBottomColor: t.border,
                 }}
               >
-                <Text style={{ color: statusColor(t, st), fontSize: 22, fontWeight: '700' }}>{s.counts[st]}</Text>
-                <Text style={{ color: t.muted, fontSize: 12 }}>{STATUS_LABEL[st]}</Text>
-              </View>
+                <Row style={{ gap: 10, flexWrap: 'nowrap' }}>
+                  <View style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: statusColor(t, st) }} />
+                  <Body>{STATUS_LABEL[st]}</Body>
+                </Row>
+                <Text style={{ color: t.text, fontSize: 16, ...F.bold }}>{s.counts[st]}</Text>
+              </Row>
             ))}
           </View>
-        </Card>
+        </View>
       ) : (
         data && <Body muted>Aún no hay datos. Sincroniza con Trello para empezar.</Body>
       )}
 
       {data && data.pending_decisions > 0 && (
-        <Card onPress={() => router.push('/proposals')} style={{ borderColor: t.warning }}>
+        <Card onPress={() => router.push('/proposals')} accent={t.warning}>
           <Row>
             <Ionicons name="alert-circle-outline" size={20} color={t.warning} />
             <Title>{data.pending_decisions} propuestas esperan tu decisión</Title>

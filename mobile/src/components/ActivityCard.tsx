@@ -9,21 +9,20 @@ export function ActivityCard({ activity: a }: { activity: Activity }) {
   const t = useTheme();
   const color = statusColor(t, a.status);
   return (
-    <Card onPress={a.url ? () => Linking.openURL(a.url) : undefined}>
-      <Row style={{ justifyContent: 'space-between' }}>
+    <Card accent={color} onPress={a.url ? () => Linking.openURL(a.url) : undefined}>
+      <Row>
         <Badge label={STATUS_LABEL[a.status]} color={color} />
         {a.at_risk && a.status !== 'retrasada' && <Badge label="En riesgo" color={t.warning} />}
         {a.priority && <Badge label={`Prioridad ${a.priority}`} color={t.neutral} />}
       </Row>
       <Title>{a.name}</Title>
+      <Body muted>{a.list}</Body>
+      <Body muted>{a.responsables.length ? a.responsables.join(', ') : 'Sin responsable'}</Body>
       <Body muted>
-        {a.list} · {a.responsables.length ? a.responsables.join(', ') : 'Sin responsable'}
-      </Body>
-      <Body muted>
-        Inicio: {fmtDate(a.start)} · Límite: {fmtDate(a.due)}
+        Inicio {fmtDate(a.start)}, límite {fmtDate(a.due)}
       </Body>
       <ProgressBar value={a.progress * 100} color={color} />
-      {a.risk_reasons.length > 0 && <Body style={{ color: t.warning }}>⚠ {a.risk_reasons.join(' · ')}</Body>}
+      {a.risk_reasons.length > 0 && <Body style={{ color: t.warning }}>Riesgo: {a.risk_reasons.join('; ')}</Body>}
       {a.blocks.length > 0 && a.status !== 'completada' && (
         <Body muted>Impacta a {a.blocks.length} actividad(es) dependiente(s)</Body>
       )}

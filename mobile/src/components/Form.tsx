@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Alert, Pressable, Share, Text, TextInput, TextInputProps, View } from 'react-native';
+import { Alert, Pressable, Share, TextInput, TextInputProps, View } from 'react-native';
+import { Text } from './Text';
 
 import { api } from '@/lib/api';
-import { useTheme } from '@/lib/theme';
+import { F, RADIUS, useTheme } from '@/lib/theme';
 
 import { Body, Button, Row } from './ui';
 
@@ -10,15 +11,15 @@ export function Field({ label, ...props }: TextInputProps & { label: string }) {
   const t = useTheme();
   return (
     <View style={{ gap: 4 }}>
-      <Text style={{ color: t.muted, fontSize: 13, fontWeight: '600' }}>{label}</Text>
+      <Text style={{ color: t.muted, fontSize: 13, ...F.semi }}>{label}</Text>
       <TextInput
         placeholderTextColor={t.muted}
         autoCapitalize="none"
         autoCorrect={false}
         {...props}
         style={[
-          { borderWidth: 1, borderColor: t.border, borderRadius: 10, paddingHorizontal: 12, minHeight: 46,
-            fontSize: 15, color: t.text, backgroundColor: t.card },
+          { borderWidth: 1, borderColor: t.border, borderRadius: RADIUS.control, paddingHorizontal: 12, minHeight: 46,
+            ...F.regular, fontSize: 15, color: t.text, backgroundColor: t.card },
           props.style,
         ]}
       />
@@ -32,14 +33,14 @@ export function Segmented<T extends string>({
 }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void }) {
   const t = useTheme();
   return (
-    <View style={{ flexDirection: 'row', borderRadius: 10, borderWidth: 1, borderColor: t.border, overflow: 'hidden' }}>
+    <View style={{ flexDirection: 'row', borderRadius: RADIUS.control, borderWidth: 1, borderColor: t.border, overflow: 'hidden' }}>
       {options.map((o) => (
         <Pressable
           key={o.value}
           onPress={() => onChange(o.value)}
           style={{ flex: 1, padding: 10, alignItems: 'center', backgroundColor: value === o.value ? t.primary : t.card }}
         >
-          <Text style={{ color: value === o.value ? t.primaryText : t.text, fontWeight: '600' }}>{o.label}</Text>
+          <Text style={{ color: value === o.value ? t.primaryText : t.text, ...F.semi }}>{o.label}</Text>
         </Pressable>
       ))}
     </View>

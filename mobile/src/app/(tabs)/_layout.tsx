@@ -4,7 +4,7 @@ import { ColorValue } from 'react-native';
 import { useEffect, useState } from 'react';
 
 import { api } from '@/lib/api';
-import { useTheme } from '@/lib/theme';
+import { F, useTheme } from '@/lib/theme';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 const icon =
@@ -31,6 +31,10 @@ export default function TabsLayout() {
         tabBarStyle: { backgroundColor: t.card, borderTopColor: t.border },
         headerStyle: { backgroundColor: t.card },
         headerTintColor: t.text,
+        headerTitleStyle: { ...F.bold, fontSize: 18 },
+        headerShadowVisible: false,
+        tabBarLabelStyle: { ...F.semi, fontSize: 11 },
+        tabBarBadgeStyle: { backgroundColor: t.danger, color: '#fff', ...F.bold },
       }}
     >
       <Tabs.Screen name="index" options={{ title: 'Panel', tabBarIcon: icon('speedometer-outline') }} />

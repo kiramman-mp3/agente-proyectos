@@ -1,13 +1,14 @@
 import { ReactNode } from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
+import { Text } from './Text';
 
-import { useTheme } from '@/lib/theme';
+import { F, useTheme } from '@/lib/theme';
 
 /** Renderizador mínimo para el Markdown que genera el backend: títulos, listas, tablas, **negrita**, *cursiva*. */
 function inline(text: string, keyPrefix: string): ReactNode[] {
   return text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g).filter(Boolean).map((part, i) => {
     if (part.startsWith('**') && part.endsWith('**'))
-      return <Text key={`${keyPrefix}-${i}`} style={{ fontWeight: '700' }}>{part.slice(2, -2)}</Text>;
+      return <Text key={`${keyPrefix}-${i}`} style={{ ...F.bold }}>{part.slice(2, -2)}</Text>;
     if (part.startsWith('*') && part.endsWith('*') && part.length > 2)
       return <Text key={`${keyPrefix}-${i}`} style={{ fontStyle: 'italic' }}>{part.slice(1, -1)}</Text>;
     return part;
@@ -36,7 +37,7 @@ export function Markdown({ children }: { children: string }) {
           {rows.map((r, ri) => (
             <View key={ri} style={{ flexDirection: 'row', borderTopWidth: ri ? 1 : 0, borderColor: t.border }}>
               {r.map((c, ci) => (
-                <Text key={ci} style={[text, { flex: 1, padding: 6, fontWeight: ri === 0 ? '700' : '400' }]}>{c}</Text>
+                <Text key={ci} style={[text, { flex: 1, padding: 6, ...(ri === 0 ? F.bold : F.regular) }]}>{c}</Text>
               ))}
             </View>
           ))}
@@ -46,7 +47,7 @@ export function Markdown({ children }: { children: string }) {
       const level = line.indexOf(' ');
       const size = { 1: 20, 2: 17, 3: 15 }[level] ?? 15;
       out.push(
-        <Text key={key} style={[text, { fontSize: size, fontWeight: '700', marginTop: level === 1 ? 0 : 12 }]}>
+        <Text key={key} style={[text, { fontSize: size, ...F.bold, marginTop: level === 1 ? 0 : 12 }]}>
           {inline(line.slice(level + 1), key)}
         </Text>,
       );
