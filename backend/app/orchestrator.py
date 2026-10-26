@@ -13,6 +13,7 @@ from .integrations.trello import TrelloClient
 
 OPEN_STATUSES = ("en_revision", "pendiente_gestor", "modificacion_solicitada")
 _locks = {name: threading.Lock() for name in ("analysis", "code", "report")}
+_last_run: dict[str, dict] = {}
 
 
 class BusyError(RuntimeError):
@@ -25,12 +26,22 @@ def _exclusive(name: str):
             if not _locks[name].acquire(blocking=False):
                 raise BusyError(f"Ya hay un proceso de '{name}' en ejecución")
             try:
-                return fn(*args, **kwargs)
+                result = fn(*args, **kwargs)
+                _last_run[name] = {"ok": True, "result": result, "finished_at": datetime.now().isoformat()}
+                return result
+            except Exception as e:
+                _last_run[name] = {"ok": False, "error": str(e)[:300], "finished_at": datetime.now().isoformat()}
+                raise
             finally:
                 _locks[name].release()
         inner.__name__ = fn.__name__
         return inner
     return wrap
+
+
+def process_status(name: str) -> dict:
+    """Indica si un proceso exclusivo está corriendo y cómo terminó su última ejecución."""
+    return {"running": _locks[name].locked(), "last": _last_run.get(name)}
 
 
 # ---------------------------------------------------------------- Trello / seguimiento
