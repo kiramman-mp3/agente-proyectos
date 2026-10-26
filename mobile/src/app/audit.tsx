@@ -1,9 +1,10 @@
 import { useCallback, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
+import { Text } from '@/components/Text';
 
 import { Badge, Body, Card, ErrorBox, Loading, Row, Screen, Title, useLoader } from '@/components/ui';
 import { api, AuditEntry } from '@/lib/api';
-import { fmtDate, useTheme } from '@/lib/theme';
+import { F, fmtDate, useTheme } from '@/lib/theme';
 
 const FILTERS = [
   { key: '', label: 'Todos' },
@@ -40,7 +41,7 @@ export default function AuditScreen() {
               backgroundColor: filter === f.key ? t.primary : 'transparent',
             }}
           >
-            <Text style={{ color: filter === f.key ? t.primaryText : t.primary, fontWeight: '600' }}>{f.label}</Text>
+            <Text style={{ color: filter === f.key ? t.primaryText : t.primary, ...F.semi }}>{f.label}</Text>
           </Pressable>
         ))}
       </View>
