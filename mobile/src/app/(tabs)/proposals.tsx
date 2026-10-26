@@ -1,11 +1,12 @@
 import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Alert, Pressable, View } from 'react-native';
+import { Text } from '@/components/Text';
 
 import { Badge, Body, Button, Card, Empty, ErrorBox, Loading, Row, Screen, Title, useLoader } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { ACTION_LABEL, fmtDate, PROPOSAL_STATUS_LABEL, proposalColor, useTheme } from '@/lib/theme';
+import { F, RADIUS, ACTION_LABEL, fmtDate, PROPOSAL_STATUS_LABEL, proposalColor, useTheme } from '@/lib/theme';
 
 const TABS = [
   { key: 'pendiente_gestor', label: 'Pendientes' },
@@ -61,15 +62,15 @@ export default function ProposalsScreen() {
   };
 
   return (
-    <Screen refreshing={refreshing} onRefresh={refresh}>
-      <View style={{ flexDirection: 'row', borderRadius: 10, borderWidth: 1, borderColor: t.border, overflow: 'hidden' }}>
+    <Screen refreshing={refreshing} onRefresh={refresh} chatFab>
+      <View style={{ flexDirection: 'row', borderRadius: RADIUS.control, borderWidth: 1, borderColor: t.border, overflow: 'hidden' }}>
         {TABS.map((x) => (
           <Pressable
             key={x.key}
             onPress={() => setTab(x.key)}
             style={{ flex: 1, padding: 10, alignItems: 'center', backgroundColor: tab === x.key ? t.primary : t.card }}
           >
-            <Text style={{ color: tab === x.key ? t.primaryText : t.text, fontWeight: '600' }}>{x.label}</Text>
+            <Text style={{ color: tab === x.key ? t.primaryText : t.text, ...F.semi }}>{x.label}</Text>
           </Pressable>
         ))}
       </View>
@@ -85,10 +86,10 @@ export default function ProposalsScreen() {
         <Empty text={tab ? 'No hay propuestas esperando tu decisión.' : 'Todavía no hay propuestas.'} />
       )}
       {data?.map((p) => (
-        <Card key={p.id} onPress={() => router.push({ pathname: '/proposal/[id]', params: { id: String(p.id) } })}>
+        <Card key={p.id} accent={proposalColor(t, p.status)} onPress={() => router.push({ pathname: '/proposal/[id]', params: { id: String(p.id) } })}>
           <Row style={{ justifyContent: 'space-between' }}>
             <Badge label={PROPOSAL_STATUS_LABEL[p.status] ?? p.status} color={proposalColor(t, p.status)} />
-            <Body muted>#{p.id} · {fmtDate(p.created_at, true)}</Body>
+            <Body muted>#{p.id}, {fmtDate(p.created_at, true)}</Body>
           </Row>
           <Title>
             {ACTION_LABEL[p.action_type] ?? p.action_type}: {p.target_name ?? 'repositorio'}

@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, Text } from 'react-native';
+import { Pressable, ScrollView } from 'react-native';
+import { Text } from '@/components/Text';
 
 import { ActivityCard } from '@/components/ActivityCard';
 import { Empty, ErrorBox, Loading, Screen, useLoader } from '@/components/ui';
 import { api } from '@/lib/api';
-import { STATUS_LABEL, statusColor, useTheme } from '@/lib/theme';
+import { F, STATUS_LABEL, statusColor, useTheme } from '@/lib/theme';
 
 const FILTERS = ['todas', 'retrasada', 'bloqueada', 'en_ejecucion', 'pendiente', 'completada', 'riesgo'] as const;
 
@@ -19,7 +20,7 @@ export default function ActivitiesScreen() {
   );
 
   return (
-    <Screen refreshing={refreshing} onRefresh={refresh}>
+    <Screen refreshing={refreshing} onRefresh={refresh} chatFab>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
         {FILTERS.map((f) => {
           const active = f === filter;
@@ -36,7 +37,7 @@ export default function ActivitiesScreen() {
                 borderColor: color, backgroundColor: active ? color : 'transparent',
               }}
             >
-              <Text style={{ color: active ? t.card : color, fontWeight: '600', fontSize: 13 }}>
+              <Text style={{ color: active ? t.card : color, ...F.semi, fontSize: 13 }}>
                 {f === 'todas' ? 'Todas' : f === 'riesgo' ? 'En riesgo' : STATUS_LABEL[f]} ({count})
               </Text>
             </Pressable>

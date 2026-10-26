@@ -1,14 +1,20 @@
 import { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, StyleSheet, Switch, TextInput, useWindowDimensions, View } from 'react-native';
 
+import { Text } from '@/components/Text';
 import { Body, Button, ErrorBox } from '@/components/ui';
 import { getRememberedUsername, setRememberedUsername } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { useTheme } from '@/lib/theme';
+import { F, RADIUS, statusColor, useTheme } from '@/lib/theme';
+
+// Misma cinta del panel, a escala de marca: completada, en ejecución, pendiente, bloqueada, retrasada.
+const MARK: [string, number][] = [['completada', 5], ['en_ejecucion', 3], ['pendiente', 2], ['bloqueada', 1], ['retrasada', 1]];
 
 export default function Login() {
   const t = useTheme();
   const { login } = useAuth();
+  const { width } = useWindowDimensions();
+  const pad = Math.max(24, (width - 440) / 2); // formulario centrado de hasta 440 px
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(false);
@@ -43,11 +49,18 @@ export default function Login() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={[styles.container, { backgroundColor: t.bg }]}
+      style={[styles.container, { backgroundColor: t.bg, paddingHorizontal: pad }]}
     >
-      <View style={{ gap: 4, marginBottom: 16 }}>
-        <Text style={{ color: t.text, fontSize: 26, fontWeight: '700' }}>Agente de Proyectos</Text>
-        <Body muted>Seguimiento y control con agentes Ejecutor, Revisor y Aprobador</Body>
+      <View style={{ gap: 10, marginBottom: 20 }}>
+        <View style={{ flexDirection: 'row', gap: 2, height: 12, width: 132 }}>
+          {MARK.map(([status, flex]) => (
+            <View key={status} style={{ flex, borderRadius: 2, backgroundColor: statusColor(t, status) }} />
+          ))}
+        </View>
+        <Text style={{ color: t.text, fontSize: 38, lineHeight: 40, letterSpacing: -1.5, ...F.bold }}>
+          Agente de Proyectos
+        </Text>
+        <Body muted>Seguimiento de actividades y decisiones sobre las propuestas de los agentes.</Body>
       </View>
 
       <Text style={[styles.label, { color: t.muted }]}>Usuario</Text>
@@ -69,7 +82,12 @@ export default function Login() {
         placeholderTextColor={t.muted}
       />
       <View style={styles.rememberRow}>
-        <Switch value={remember} onValueChange={setRemember} />
+        <Switch
+          value={remember}
+          onValueChange={setRemember}
+          trackColor={{ true: t.primary, false: t.border }}
+          thumbColor={t.card}
+        />
         <Text style={{ color: t.text, fontSize: 14 }}>Recordar mi usuario</Text>
       </View>
       {error && <ErrorBox message={error} />}
@@ -82,7 +100,14 @@ export default function Login() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', padding: 24, gap: 8 },
-  label: { fontSize: 13, fontWeight: '600', marginTop: 4 },
+  label: { fontSize: 13, marginTop: 4, ...F.semi },
   rememberRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 },
-  input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, minHeight: 46, fontSize: 15 },
+  input: {
+    borderWidth: 1,
+    borderRadius: RADIUS.control,
+    paddingHorizontal: 12,
+    minHeight: 48,
+    fontSize: 16,
+    ...F.regular,
+  },
 });
