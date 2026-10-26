@@ -32,7 +32,11 @@ def test_gestor_manages_developers(client):
     assert first["must_change_password"] is True and first["role"] == "desarrollador"
     dev = TestClient(client.app, headers={"Authorization": f"Bearer {first['token']}"})
     assert dev.post("/auth/change-password", json={"current_password": "mala", "new_password": "nueva-clave-1"}).status_code == 400
-    assert dev.post("/auth/change-password", json={"current_password": temp, "new_password": "nueva-clave-1"}).json() == {"ok": True}
+    changed = dev.post("/auth/change-password", json={"current_password": temp, "new_password": "nueva-clave-1"}).json()
+    assert changed["ok"] is True
+    # El token anterior queda invalidado; el que devuelve el cambio mantiene la sesión.
+    assert dev.get("/dashboard").status_code == 401
+    dev.headers["Authorization"] = f"Bearer {changed['token']}"
     assert login(client, "carol", "nueva-clave-1").json()["must_change_password"] is False
 
     # Un desarrollador no administra usuarios ni decide propuestas.

@@ -194,16 +194,31 @@ export async function clearSession() {
   await SecureStore.deleteItemAsync(SESSION_KEY);
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+// Tiempo máximo de espera por petición. El chat y las acciones que usan IA necesitan más margen.
+const DEFAULT_TIMEOUT_MS = 30_000;
+const SLOW_TIMEOUT_MS = 150_000;
+
+async function request<T>(path: string, init: RequestInit = {}, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<T> {
   const base = SERVER_URL.replace(/\/+$/, '');
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (cachedSession) headers.Authorization = `Bearer ${cachedSession.token}`;
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   let res: Response;
   try {
-    res = await fetch(base + path, { ...init, headers: { ...headers, ...(init.headers as object) } });
-  } catch {
+    res = await fetch(base + path, {
+      ...init,
+      signal: controller.signal,
+      headers: { ...headers, ...(init.headers as object) },
+    });
+  } catch (e) {
+    if (e instanceof Error && e.name === 'AbortError') {
+      throw new ApiError(0, 'El servidor tardó demasiado en responder. Revisa tu conexión e inténtalo de nuevo.');
+    }
     throw new ApiError(0, `No se pudo conectar con ${base}`);
+  } finally {
+    clearTimeout(timer);
   }
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
@@ -224,11 +239,11 @@ export async function login(username: string, password: string): Promise<Session
   return session;
 }
 
-const post = <T,>(path: string, body: object = {}) =>
-  request<T>(path, { method: 'POST', body: JSON.stringify(body) });
+const post = <T,>(path: string, body: object = {}, timeoutMs?: number) =>
+  request<T>(path, { method: 'POST', body: JSON.stringify(body) }, timeoutMs);
 
 export const api = {
-  chat: (messages: ChatMessage[]) => post<{ reply: string }>('/chat', { messages }),
+  chat: (messages: ChatMessage[]) => post<{ reply: string }>('/chat', { messages }, SLOW_TIMEOUT_MS),
   dashboard: () => request<Dashboard>('/dashboard'),
   activities: () => request<Activity[]>('/activities'),
   sync: () => post<{ changes: number }>('/sync'),
@@ -250,8 +265,12 @@ export const api = {
   notifications: () => request<Notification[]>('/notifications'),
   readAllNotifications: () => post('/notifications/read-all'),
   me: () => request<User>('/auth/me'),
-  changePassword: (current_password: string, new_password: string) =>
-    post<{ ok: boolean }>('/auth/change-password', { current_password, new_password }),
+  changePassword: async (current_password: string, new_password: string) => {
+    const res = await post<{ ok: boolean; token?: string }>('/auth/change-password', { current_password, new_password });
+    // El servidor invalida los tokens anteriores y entrega uno nuevo para no cerrar esta sesión.
+    if (res.token) await updateSession({ token: res.token });
+    return res;
+  },
   users: () => request<User[]>('/users'),
   createUser: (body: { username: string; full_name?: string; email?: string; role: Role }) =>
     post<User & { temporary_password: string }>('/users', body),

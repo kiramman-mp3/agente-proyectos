@@ -4,13 +4,14 @@ import logging
 import threading
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from . import audit, bootstrap, chat, db, orchestrator, scheduler
 from .config import settings
 from .llm import LLMError
-from .security import (ROLES, create_token, current_user, generate_password, hash_password, require,
+from .ratelimit import client_ip, login_limiter
+from .security import (ROLES, bump_token_version, create_token, current_user, generate_password, hash_password, require,
                        secrets_status, verify_password)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -18,6 +19,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    settings.validate()
     db.conn()
     bootstrap.run()
     scheduler.start()
@@ -25,12 +27,18 @@ async def lifespan(_: FastAPI):
     scheduler.stop()
 
 
-app = FastAPI(title="Agente de Seguimiento de Proyectos", version="1.0.0", lifespan=lifespan)
+# La documentación interactiva solo se publica con ENABLE_DOCS=true (desarrollo local).
+app = FastAPI(title="Agente de Seguimiento de Proyectos", version="1.0.0", lifespan=lifespan,
+              docs_url="/docs" if settings.docs_enabled else None, redoc_url=None,
+              openapi_url="/openapi.json" if settings.docs_enabled else None)
+
+# Hash de relleno: se verifica cuando el usuario no existe para que la respuesta tarde lo mismo.
+_DUMMY_HASH = hash_password("relleno-sin-usuario")
 
 
 class LoginIn(BaseModel):
-    username: str
-    password: str
+    username: str = Field(max_length=100)
+    password: str = Field(max_length=200)
 
 
 class PasswordChangeIn(BaseModel):
@@ -90,15 +98,32 @@ def _background(name: str, fn, actor: str) -> dict:
 
 @app.get("/health")
 def health():
+    """Comprobación de vida: no toca la base de datos (Azure reinicia la instancia si falla)."""
     return {"ok": True}
 
 
+@app.get("/health/ready")
+def health_ready():
+    """Comprobación de disponibilidad: verifica que la base de datos responde."""
+    try:
+        db.query_one("SELECT 1 AS ok")
+    except Exception:  # noqa: BLE001
+        raise HTTPException(503, "Base de datos no disponible")
+    return {"ok": True, "db": "ok"}
+
+
 @app.post("/auth/login")
-def login(body: LoginIn):
+def login(body: LoginIn, request: Request):
+    ip = client_ip(request)
+    login_limiter.check(body.username, ip)
     user = db.query_one("SELECT * FROM users WHERE username = ? AND active = 1", (body.username,))
-    if not user or not verify_password(body.password, user["password_hash"]):
-        audit.log(body.username, "login_fallido", "usuario", actor_type="humano")
+    if not user or not verify_password(body.password, user["password_hash"] if user else _DUMMY_HASH):
+        login_limiter.fail(body.username, ip)
+        # Solo se audita si el usuario existe: evita llenar la bitácora con nombres inventados.
+        if user:
+            audit.log(user["username"], "login_fallido", "usuario", user["id"], {"ip": ip}, actor_type="humano")
         raise HTTPException(401, "Usuario o contraseña incorrectos")
+    login_limiter.success(user["username"])
     audit.log(user["username"], "login", "usuario", user["id"], actor_type="humano")
     return {"token": create_token(user), "username": user["username"], "role": user["role"],
             "full_name": user.get("full_name"), "must_change_password": bool(user.get("must_change_password"))}
@@ -106,7 +131,7 @@ def login(body: LoginIn):
 
 @app.get("/auth/me")
 def me(user=Depends(current_user)):
-    return user
+    return {k: v for k, v in user.items() if k != "token_version"}
 
 
 @app.post("/auth/change-password")
@@ -118,8 +143,11 @@ def change_password(body: PasswordChangeIn, user=Depends(current_user)):
         raise HTTPException(400, "La nueva contraseña debe ser distinta de la actual")
     db.execute("UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?",
                (hash_password(body.new_password), user["id"]))
+    # Se invalidan las demás sesiones; se devuelve un token nuevo para que esta siga abierta.
+    bump_token_version(user["id"])
     audit.log(user["username"], "contrasena_cambiada", "usuario", user["id"], actor_type="humano")
-    return {"ok": True}
+    fresh = db.query_one("SELECT * FROM users WHERE id = ?", (user["id"],))
+    return {"ok": True, "token": create_token(fresh)}
 
 
 # ---------------------------------------------------------------- Usuarios (REQ-11, solo gestor)
@@ -166,6 +194,8 @@ def user_update(uid: int, body: UserUpdateIn, user=Depends(require("users"))):
             changes[k] = None
     if changes:
         db.update("users", uid, changes)
+        if "role" in changes or "active" in changes:
+            bump_token_version(uid)
         audit.log(user["username"], "usuario_actualizado", "usuario", uid,
                   {"usuario": target["username"], **changes}, actor_type="humano")
     return _user_or_404(uid)
@@ -176,6 +206,7 @@ def user_reset_password(uid: int, user=Depends(require("users"))):
     target = _user_or_404(uid)
     temp = generate_password()
     db.execute("UPDATE users SET password_hash = ?, must_change_password = 1 WHERE id = ?", (hash_password(temp), uid))
+    bump_token_version(uid)
     audit.log(user["username"], "contrasena_restablecida", "usuario", uid, {"usuario": target["username"]},
               actor_type="humano")
     return {"username": target["username"], "temporary_password": temp}
