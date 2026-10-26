@@ -18,6 +18,22 @@ guardan **cifradas** en la base de datos, no en el `.env`.
 | `TIMEZONE` | Zona horaria de los reportes y las tareas | `America/Guayaquil` |
 | `APP_URL` | URL pública del backend | *(vacío)* |
 
+### Seguridad y operación
+
+| Variable | Descripción | Valor por defecto |
+|---|---|---|
+| `ENABLE_DOCS` | Publica `/docs` y `/openapi.json`. Déjala en `false` en producción | `false` |
+| `LOGIN_MAX_ATTEMPTS` | Intentos fallidos de login por usuario dentro de la ventana (por IP se admiten 4 veces más) | `5` |
+| `LOGIN_WINDOW_SECONDS` | Duración de la ventana de intentos y del bloqueo | `900` |
+| `AUDIT_RETENTION_DAYS` | Días que se conserva la bitácora de auditoría. `0`: para siempre | `0` |
+| `SNAPSHOT_RETENTION_DAYS` | Días que se conservan las copias del tablero (siempre queda la más reciente). `0`: sin purga | `90` |
+| `CHANGES_RETENTION_DAYS` | Días que se conservan los cambios de planificación detectados | `180` |
+| `NOTIFICATION_RETENTION_DAYS` | Días que se conservan los avisos **ya leídos** | `90` |
+| `KEEPALIVE_URL` | Opcional: el backend se llama a sí mismo cada 10 minutos (solo para hostings que duermen el servicio). No hace falta con Always On | *(vacío)* |
+
+**Arranque seguro:** el backend no arranca si falta `MASTER_KEY` o `JWT_SECRET`, o si `JWT_SECRET` tiene menos de 32
+caracteres. Así el error se ve al desplegar, no como un `500` al primer login.
+
 ### Proveedor de IA
 
 | Variable | Descripción | Valor por defecto |

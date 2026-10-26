@@ -1,13 +1,16 @@
 # Referencia de la API
 
-La API es REST con JSON. Con el backend en marcha, la documentación interactiva (OpenAPI) está en `/docs`; en
-producción: <https://agente-proyectos.azurewebsites.net/docs>.
+La API es REST con JSON. La documentación interactiva (OpenAPI) en `/docs` y `/openapi.json` está **desactivada por
+defecto** para no exponer el mapa de la API; actívala en local con `ENABLE_DOCS=true`. Este documento es la
+referencia para producción.
 
 ## Autenticación
 
 1. `POST /auth/login` con `{"username": "...", "password": "..."}` devuelve un token.
 2. El resto de las peticiones envían la cabecera `Authorization: Bearer <token>`.
 3. El token caduca a las `JWT_EXPIRE_HOURS` horas (12 por defecto); tras eso hay que iniciar sesión de nuevo.
+4. El token también **deja de valer** cuando se cambia o restablece la contraseña del usuario, o cuando se cambia su rol o se desactiva. `POST /auth/change-password` devuelve un token nuevo para mantener esa sesión.
+5. Tras 5 intentos fallidos (`LOGIN_MAX_ATTEMPTS`) en 15 minutos (`LOGIN_WINDOW_SECONDS`) para un mismo usuario, `POST /auth/login` responde `429` con la cabecera `Retry-After` aunque la contraseña sea correcta. También hay un límite por IP, cuatro veces mayor.
 
 ```bash
 curl -s https://agente-proyectos.azurewebsites.net/auth/login \
@@ -35,10 +38,11 @@ Los roles heredados `admin` y `observador` equivalen a `gestor` y `desarrollador
 
 | Método | Ruta | Permiso | Descripción |
 |---|---|---|---|
-| GET | `/health` | pública | Comprobación de estado: `{"ok": true}` |
+| GET | `/health` | pública | Comprobación de vida: `{"ok": true}`. No toca la base de datos; es la que usa Azure |
+| GET | `/health/ready` | pública | Comprobación de disponibilidad: verifica la base de datos. `503` si no responde |
 | POST | `/auth/login` | pública | Inicia sesión |
 | GET | `/auth/me` | sesión | Datos del usuario actual |
-| POST | `/auth/change-password` | sesión | Cambia la contraseña (`current_password`, `new_password` de 8+ caracteres) |
+| POST | `/auth/change-password` | sesión | Cambia la contraseña (`current_password`, `new_password` de 8+ caracteres). Devuelve `{"ok": true, "token": "…"}` con un token nuevo; los anteriores quedan invalidados |
 | GET | `/users` | `users` | Lista los usuarios |
 | POST | `/users` | `users` | Crea un usuario; devuelve una contraseña temporal |
 | PATCH | `/users/{uid}` | `users` | Edita nombre, correo, rol o estado activo |
@@ -93,9 +97,11 @@ debe ser del usuario. Respuesta: `{"reply": "..."}`. Detalles en [asistente-chat
 | Código | Cuándo |
 |---|---|
 | 400 | Dato inválido, por ejemplo un rol que no existe al crear un usuario |
-| 401 | Falta el token, es inválido o caducó, o las credenciales de login son incorrectas |
+| 401 | Falta el token, es inválido, caducó o fue invalidado, o las credenciales de login son incorrectas |
 | 403 | El rol no tiene el permiso requerido |
 | 404 | La propuesta, el usuario o el reporte no existe |
-| 409 | La propuesta ya no está pendiente, o el usuario ya existe |
+| 409 | La propuesta ya no está pendiente (por ejemplo, otra decisión llegó antes), o el usuario ya existe |
 | 422 | Cuerpo inválido (por ejemplo, un chat que no termina con un mensaje del usuario) |
+| 429 | Demasiados intentos fallidos de login; espera lo que indica `Retry-After` |
 | 502 | Falló Trello, GitHub o el proveedor de IA; el mensaje indica el motivo |
+| 503 | `/health/ready`: la base de datos no responde |

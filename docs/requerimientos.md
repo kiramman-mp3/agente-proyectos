@@ -25,11 +25,15 @@ Estas no figuraban en la matriz original:
 | Asistente conversacional de solo lectura | `backend/app/chat.py`, `POST /chat`, `mobile/src/app/chat.tsx` y botón flotante ([asistente-chat.md](./asistente-chat.md)) |
 | Proveedor de IA de respaldo | `backend/app/llm.py` (`LLM_FALLBACK_PROVIDER`, `FALLBACK_MODEL_*`) ([configuracion.md](./configuracion.md)) |
 | Despliegue en Azure App Service | [despliegue-azure.md](./despliegue-azure.md) |
+| Endurecimiento de seguridad (login limitado, sesiones revocables, solo HTTPS, decisiones atómicas) | [seguridad.md](./seguridad.md) |
+| Purga automática de datos antiguos y tareas seguras con varias instancias | `backend/app/retention.py`, `db.claim_job` ([arquitectura.md](./arquitectura.md)) |
+| Integración continua y despliegue opcional a Azure | `.github/workflows/` ([desarrollo.md](./desarrollo.md)) |
 | Aplicación adaptable a tablet con identidad visual propia | `mobile/src/lib/theme.ts`, `mobile/src/components/ui.tsx` ([app-movil.md](./app-movil.md)) |
 
 ## Pruebas automatizadas
 
-Las pruebas de `backend/tests` (28) cubren: estados, riesgo, dependencias, avance, detección de cambios, cifrado,
+Las pruebas de `backend/tests` (41) cubren: estados, riesgo, dependencias, avance, detección de cambios, cifrado,
 selección del proveedor de IA y su respaldo, validaciones del Revisor, análisis estático, flujo multiagente completo
 con aprobación del gestor, permisos por rol, usuarios y correo, reporte semanal, revisión de código que crea un
-*issue* sin tocar el código, y el chat. Más detalles en [desarrollo.md](./desarrollo.md).
+*issue* sin tocar el código, el chat y el endurecimiento de seguridad. La app tiene además 12 pruebas con Jest. Más
+detalles en [desarrollo.md](./desarrollo.md).

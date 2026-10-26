@@ -42,6 +42,8 @@ graph TD
 | `backend/app/scheduler.py` | Tareas automáticas con APScheduler |
 | `backend/app/mailer.py` | Correo a los gestores por SMTP o por relé HTTPS |
 | `backend/app/audit.py` | Bitácora de auditoría |
+| `backend/app/ratelimit.py` | Límite de intentos fallidos de login (en memoria) |
+| `backend/app/retention.py` | Purga de datos antiguos |
 | `backend/app/bootstrap.py` | En cada arranque, cifra las credenciales recibidas por entorno y asegura el usuario inicial |
 | `backend/app/db.py` | Esquema y acceso a datos; SQLite en local y PostgreSQL con `DATABASE_URL` |
 
@@ -61,6 +63,7 @@ Las tablas se crean al arrancar (`backend/app/db.py`).
 | `reports` | Reportes semanales (cifras y contenido en Markdown) |
 | `code_reviews` | Revisiones de código con hallazgos |
 | `notifications` | Avisos mostrados en la app |
+| `job_locks` | Reserva de las tareas programadas: solo una instancia ejecuta cada una dentro de su plazo |
 
 ## Tareas automáticas
 
@@ -71,8 +74,12 @@ El planificador se inicia con la API y ejecuta, en la zona horaria `TIMEZONE`:
 | Análisis de retrasos | Cada `ANALYSIS_INTERVAL_MINUTES` (60 por defecto) | `ANALYSIS_INTERVAL_MINUTES` |
 | Revisión de código | Cada `CODE_REVIEW_INTERVAL_HOURS` (24 por defecto) | `CODE_REVIEW_INTERVAL_HOURS` |
 | Reporte semanal | Un día y hora fijos (lunes a las 8 por defecto) | `REPORT_DAY`, `REPORT_HOUR` |
+| Purga de datos antiguos | Todos los días a las 03:30 | `*_RETENTION_DAYS` |
 
-Cada proceso tiene un bloqueo propio para no ejecutarse dos veces a la vez. Con `SCHEDULER_ENABLED=false` no se
+Cada proceso tiene un bloqueo propio para no ejecutarse dos veces a la vez dentro de una instancia, y además cada
+tarea se **reserva en la base de datos** (`job_locks`) antes de correr: si el servicio escala a más de una instancia,
+solo una ejecuta cada tarea. Las sincronizaciones con Trello se serializan con un candado, porque el planificador,
+el botón de la app y la ejecución de una propuesta pueden coincidir y todas reescriben el mismo estado. Con `SCHEDULER_ENABLED=false` no se
 programa nada (así corren las pruebas).
 
 ## Decisiones de diseño

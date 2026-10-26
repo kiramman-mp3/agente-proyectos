@@ -7,9 +7,13 @@ import { api } from '@/lib/api';
 import { F, useTheme } from '@/lib/theme';
 
 type IconName = keyof typeof Ionicons.glyphMap;
-const icon =
-  (name: IconName) =>
-  ({ color, size }: { color: ColorValue; size: number }) => <Ionicons name={name} color={color} size={size} />;
+const icon = (name: IconName) => {
+  const TabIcon = ({ color, size }: { color: ColorValue; size: number }) => (
+    <Ionicons name={name} color={color} size={size} />
+  );
+  TabIcon.displayName = `TabIcon(${name})`;
+  return TabIcon;
+};
 
 export default function TabsLayout() {
   const t = useTheme();

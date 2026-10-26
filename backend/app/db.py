@@ -6,7 +6,7 @@ Las consultas se escriben con marcadores '?' y se adaptan al motor correspondien
 import json
 import sqlite3
 import threading
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from .config import settings
 
@@ -113,6 +113,11 @@ CREATE TABLE IF NOT EXISTS code_reviews (
     review_notes TEXT
 );
 
+CREATE TABLE IF NOT EXISTS job_locks (
+    name TEXT PRIMARY KEY,
+    locked_until TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS notifications (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     created_at TEXT NOT NULL,
@@ -131,6 +136,7 @@ MIGRATIONS = [
     ("users", "full_name", "TEXT"),
     ("users", "email", "TEXT"),
     ("users", "must_change_password", "INTEGER NOT NULL DEFAULT 0"),
+    ("users", "token_version", "INTEGER NOT NULL DEFAULT 0"),
 ]
 
 
@@ -195,6 +201,8 @@ def _run(sql: str, params: tuple, fetch: str | None):
     if is_postgres():
         with conn().connection() as c:
             cur = c.execute(_pg_sql(sql), params)
+            if fetch == "count":
+                return cur.rowcount
             if fetch == "all":
                 return [dict(r) for r in cur.fetchall()]
             if fetch == "one":
@@ -208,6 +216,8 @@ def _run(sql: str, params: tuple, fetch: str | None):
                 dict(r) if fetch == "one" and (r := cur.fetchone()) else None)
             if fetch == "id":
                 result = cur.lastrowid
+            elif fetch == "count":
+                result = cur.rowcount
             c.commit()
             return result
         except Exception:
@@ -226,6 +236,21 @@ def query_one(sql: str, params: tuple = ()) -> dict | None:
 
 def execute(sql: str, params: tuple = ()) -> None:
     _run(sql, params, None)
+
+
+def execute_count(sql: str, params: tuple = ()) -> int:
+    """Ejecuta una sentencia y devuelve cuántas filas afectó (útil para transiciones atómicas)."""
+    return _run(sql, params, "count")
+
+
+def claim_job(name: str, ttl_seconds: int) -> bool:
+    """Reserva una tarea periódica entre varias instancias: solo una la obtiene hasta que expire el plazo."""
+    now = datetime.now(timezone.utc)
+    until = (now + timedelta(seconds=ttl_seconds)).isoformat(timespec="seconds")
+    return execute_count(
+        "INSERT INTO job_locks (name, locked_until) VALUES (?, ?) "
+        "ON CONFLICT(name) DO UPDATE SET locked_until = excluded.locked_until WHERE job_locks.locked_until < ?",
+        (name, until, now.isoformat(timespec="seconds"))) == 1
 
 
 def insert(table: str, data: dict) -> int:
