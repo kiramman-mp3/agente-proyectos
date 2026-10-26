@@ -104,6 +104,92 @@ una cola y pueden tardar varios minutos.
 El IPA no está firmado: se instala con [AltStore](https://altstore.io/), que lo firma con tu Apple ID. Las apps
 instaladas así caducan a los 7 días con una cuenta gratuita y AltStore debe renovarlas.
 
+## Compilar el APK en local (Windows)
+
+EAS no puede compilar en local en Windows (`eas build --local` solo funciona en Linux y macOS), pero el APK se puede
+generar con Gradle usando el SDK de Android Studio. Sirve cuando la cola de EAS es larga o no quieres gastar cuota.
+
+### Requisitos
+
+| Componente | Versión probada |
+|---|---|
+| Android SDK | plataforma 36 y `build-tools` 36 |
+| NDK | `27.1.12297006` |
+| CMake | `3.22.1` |
+| JDK | **17** (también sirve el 21). **No uses el JDK 25** que trae Android Studio: la herramienta `prefab` imprime un aviso y el plugin de Android lo trata como error. |
+
+Si no tienes un JDK 17, Gradle suele descargar uno en `%USERPROFILE%\.gradle\jdks\`. Los componentes del SDK se
+instalan desde *Android Studio → SDK Manager*.
+
+### Procedimiento
+
+1. **Copia el proyecto a una ruta corta.** Windows limita las rutas a 260 caracteres y `ninja` falla con
+   `Stat(...)` al compilar los módulos nativos desde una ruta larga. No uses `subst`: rompe el autolinking de Expo.
+2. **Instala las dependencias y genera el proyecto nativo** en esa copia (así no se modifica el repositorio:
+   `expo prebuild` reescribe los scripts `android` e `ios` de `package.json`).
+3. **Compila con Gradle.**
+
+```powershell
+robocopy mobile C:\m /E /XD android .expo dist node_modules
+cd C:\m
+npm ci
+npx expo prebuild -p android --no-install
+
+$env:JAVA_HOME    = "$env:USERPROFILE\.gradle\jdks\eclipse_adoptium-17-amd64-windows.2"   # ajusta la ruta a tu JDK 17
+$env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
+
+cd android
+.\gradlew.bat assembleRelease -PreactNativeArchitectures=arm64-v8a,x86_64 --no-daemon
+```
+
+El APK queda en `C:\m\android\app\build\outputs\apk\release\app-release.apk`. La primera compilación tarda unos 13
+minutos (descarga dependencias y compila el código nativo).
+
+### Qué tener en cuenta
+
+*   **Firma:** el APK sale firmado con la clave de depuración de la plantilla de Expo, no con la keystore de EAS. Es
+    válido para instalar directamente, pero Android no permite instalarlo **encima** de un APK de EAS: desinstala
+    el anterior primero.
+*   **Arquitecturas:** `-PreactNativeArchitectures=arm64-v8a,x86_64` acorta el tiempo y el tamaño (unos 63 MB frente a
+    unos 100 MB). Cubre los teléfonos actuales, WSA y los emuladores x86_64. Quita ese parámetro para incluir también
+    `armeabi-v7a` y `x86`.
+*   **Para publicar, usa el de EAS:** su keystore es estable entre versiones, así que los usuarios pueden actualizar
+    sin desinstalar.
+*   **iOS:** no se puede compilar en local en Windows (requiere macOS con Xcode). El IPA sale siempre de EAS.
+*   La carpeta `mobile/android/` está en `.gitignore`; no se versiona.
+
+### Errores conocidos
+
+| Error | Causa y solución |
+|---|---|
+| `A restricted method in java.lang.System has been called` en una tarea `configureCMake…` | Estás usando el JDK 25. Usa JDK 17 o 21. |
+| `ninja: error: Stat(…)` con una ruta muy larga | Compilas desde una ruta larga. Copia el proyecto a `C:\m` (paso 1). |
+| `Process 'command 'cmd'' finished with non-zero exit value 1` en `settings.gradle` | Estás compilando desde una unidad creada con `subst`. Usa una carpeta real. |
+| `ConfigError: The expected package.json path … does not exist` | La copia del proyecto está vacía; en PowerShell usa `robocopy` (en Git Bash, sus opciones `/E` se confunden con rutas). |
+
+## Publicar un release con el APK y el IPA
+
+Los instaladores para el público se publican como *assets* de un release de GitHub, con los archivos que genera
+**EAS** (APK con las cuatro arquitecturas y keystore estable, e IPA sin firmar para AltStore).
+
+1. Genera los dos builds con EAS y espera a que terminen (`FINISHED`). Obtén las URL con
+   `npx eas-cli@latest build:view <id> --json` (campo `artifacts.buildUrl`).
+2. Descarga los archivos y renómbralos con la versión, por ejemplo `agente-de-proyectos-v1.0.0.apk` y
+   `agente-de-proyectos-v1.0.0.ipa`.
+3. Asegúrate de que `main` contiene el código que se compiló y crea el release con la CLI de GitHub (`gh auth login`
+   la primera vez):
+
+```powershell
+gh release create v1.0.0 --target main --title "Agente de Proyectos v1.0.0" --notes-file notas.md `
+  agente-de-proyectos-v1.0.0.apk agente-de-proyectos-v1.0.0.ipa
+```
+
+4. Para añadir o reemplazar archivos de un release existente: `gh release upload v1.0.0 <archivo> --clobber`.
+
+Sube la versión en `mobile/app.json` (`version`) antes de cada release nuevo. El repositorio es público, así que los
+archivos del release también lo son: no incluyas nada con credenciales. El APK y el IPA solo contienen la URL del
+backend, nunca sus claves.
+
 ## Versión y actualizaciones
 
 El `version` está en `app.json` (`1.0.0`) y `appVersionSource` es `local` en `eas.json`. Para actualizar una app ya
