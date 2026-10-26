@@ -7,8 +7,9 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-from . import audit, bootstrap, db, orchestrator, scheduler
+from . import audit, bootstrap, chat, db, orchestrator, scheduler
 from .config import settings
+from .llm import LLMError
 from .security import (ROLES, create_token, current_user, generate_password, hash_password, require,
                        secrets_status, verify_password)
 
@@ -52,6 +53,15 @@ class UserUpdateIn(BaseModel):
 
 
 USER_FIELDS = "id, username, full_name, email, role, active, must_change_password, created_at"
+
+
+class ChatMessageIn(BaseModel):
+    role: str = Field(pattern=r"^(user|assistant)$")
+    content: str = Field(max_length=4000)
+
+
+class ChatIn(BaseModel):
+    messages: list[ChatMessageIn] = Field(min_length=1, max_length=40)
 
 
 class DecisionIn(BaseModel):
@@ -218,6 +228,18 @@ def analysis_status(user=Depends(require("read"))):
     return orchestrator.process_status("analysis")
 
 
+# ---------------------------------------------------------------- Asistente
+
+@app.post("/chat")
+def chat_endpoint(body: ChatIn, user=Depends(require("read"))):
+    try:
+        return {"reply": chat.answer([m.model_dump() for m in body.messages])}
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    except (LLMError, RuntimeError) as e:
+        raise HTTPException(502, f"El asistente no está disponible: {e}")
+
+
 # ---------------------------------------------------------------- Propuestas (REQ-05, REQ-09)
 
 @app.get("/proposals")
@@ -365,6 +387,6 @@ def test_email(user=Depends(require("users"))):
 @app.get("/config")
 def config(user=Depends(require("read"))):
     from .agents.approver import load_policy
-    return {"provider": settings.llm_provider, "models": {"ejecutor": settings.model_executor, "revisor": settings.model_reviewer,
+    return {"provider": settings.llm_provider, "fallback_provider": settings.llm_fallback_provider or None, "models": {"ejecutor": settings.model_executor, "revisor": settings.model_reviewer,
                        "aprobador": settings.model_approver},
             "policy": load_policy(), "board_id": settings.trello_board_id, "repo": settings.github_repo}
