@@ -62,7 +62,7 @@ un emulador o WSA.
 ### Integración continua
 
 `.github/workflows/ci.yml` ejecuta en cada push y pull request: `pytest` (Python 3.11) para el backend y
-`typecheck`, `lint` y `test` para la app (Node 20). Un cambio no debería llegar a `main` con la CI en rojo.
+`typecheck`, `lint` y `test` para la app (Node 24, con el mismo npm 11 con el que se generó `package-lock.json`). Un cambio no debería llegar a `main` con la CI en rojo.
 
 ## Flujo de ramas
 
