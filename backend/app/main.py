@@ -213,6 +213,11 @@ def run_analysis(user=Depends(require("run"))):
     return _background("analisis_retrasos", orchestrator.run_delay_analysis, user["username"])
 
 
+@app.get("/analysis/status")
+def analysis_status(user=Depends(require("read"))):
+    return orchestrator.process_status("analysis")
+
+
 # ---------------------------------------------------------------- Propuestas (REQ-05, REQ-09)
 
 @app.get("/proposals")
