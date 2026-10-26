@@ -56,11 +56,11 @@ def get_secret(name: str) -> str:
 
 
 def secrets_status() -> dict[str, bool]:
-    """Estado de las credenciales requeridas por la configuración actual (solo la del proveedor de IA activo)."""
+    """Estado de las credenciales requeridas por la configuración actual (las del proveedor de IA principal y del de respaldo, si lo hay)."""
     stored = {r["name"] for r in db.query("SELECT name FROM secrets")}
-    llm_secret = LLM_SECRET.get(settings.llm_provider)
+    llm_secrets = {LLM_SECRET.get(settings.llm_provider), LLM_SECRET.get(settings.llm_fallback_provider)}
     required = [n for n in SECRET_NAMES
-                if n not in OPTIONAL_SECRETS and (n not in LLM_SECRET.values() or n == llm_secret)]
+                if n not in OPTIONAL_SECRETS and (n not in LLM_SECRET.values() or n in llm_secrets)]
     return {n: n in stored for n in required}
 
 
