@@ -16,6 +16,7 @@ gestionado), así que redesplegar la aplicación no pierde datos.
 | Comando de inicio | `uvicorn app.main:app --host 0.0.0.0 --port 8000` |
 | Comprobación de estado | `/health` |
 
+*   **Solo HTTPS** (`httpsOnly`) está activado: las peticiones HTTP se redirigen. TLS mínimo 1.2 y FTPS únicamente.
 *   **Always On** está activado, así que el servicio no se duerme y no hace falta ningún «keepalive» (el que tenía
     el proyecto en Render se eliminó).
 *   Las suscripciones **Azure for Students** restringen las regiones permitidas (`eastus2`, `westus3`,
@@ -34,6 +35,8 @@ $APP = "agente-proyectos"          # debe ser único en azurewebsites.net
 az group create -n $RG -l eastus2
 az appservice plan create -g $RG -n plan-agente-proyectos --is-linux --sku B1 -l eastus2
 az webapp create -g $RG -p plan-agente-proyectos -n $APP --runtime "PYTHON:3.11"
+
+az webapp update -g $RG -n $APP --https-only true
 
 az webapp config set -g $RG -n $APP --always-on true `
   --startup-file "uvicorn app.main:app --host 0.0.0.0 --port 8000" `
@@ -91,6 +94,7 @@ Puntos a tener en cuenta:
 
 ```powershell
 curl https://agente-proyectos.azurewebsites.net/health        # {"ok":true}
+curl https://agente-proyectos.azurewebsites.net/health/ready  # {"ok":true,"db":"ok"} (verifica la base de datos)
 az webapp log tail -g $RG -n $APP                              # logs en vivo
 az webapp log download -g $RG -n $APP --log-file logs.zip      # descarga los logs
 ```
@@ -109,10 +113,32 @@ Muchos hosting bloquean SMTP. El proyecto usa un relé HTTPS con Google Apps Scr
 2. Configura `MAIL_TRANSPORT=apps_script`, `MAIL_WEBHOOK_URL` y `MAIL_WEBHOOK_SECRET`.
 3. Prueba con el endpoint `POST /notifications/test-email` (solo gestores).
 
-## Automatizar el despliegue (pendiente)
+## Automatizar el despliegue (GitHub Actions)
 
-Hoy el despliegue es manual. Se puede automatizar con un workflow de GitHub Actions que use
-`azure/webapps-deploy` y un perfil de publicación guardado como *secret* del repositorio.
+El repositorio incluye `.github/workflows/deploy-azure.yml`. En cada push a `main` que toque `backend/` (o al lanzarlo
+a mano desde la pestaña **Actions**) ejecuta las pruebas, publica en Azure y espera a que `/health/ready` responda.
+
+Para activarlo hay que guardar el **perfil de publicación** como secreto del repositorio. Sin él, el flujo solo
+ejecuta las pruebas y deja un aviso; no falla.
+
+```powershell
+# 1. Descarga el perfil de publicación (contiene credenciales: no lo subas ni lo pegues en ningún sitio)
+az webapp deployment list-publishing-profiles -g rg-agente-proyectos -n agente-proyectos --xml > perfil.xml
+
+# 2. Guárdalo como secreto del repositorio y bórralo
+gh secret set AZURE_WEBAPP_PUBLISH_PROFILE < perfil.xml
+Remove-Item perfil.xml
+```
+
+Si cambias el nombre de la aplicación web, actualiza `AZURE_WEBAPP_NAME` en el workflow. Mientras uses el plan B1 con
+autenticación básica por SCM habilitada, el perfil de publicación funciona; si la deshabilitas, usa el método de
+inicio de sesión con OpenID Connect de `azure/login`.
+
+## Varias instancias
+
+El plan B1 corre con una sola instancia. Si escalas a más, las tareas programadas siguen ejecutándose una sola vez
+(se reservan en la tabla `job_locks`), pero el límite de intentos de login está en memoria y cada instancia llevaría
+su propia cuenta; en ese caso conviene moverlo a la base de datos.
 
 ## Problemas frecuentes
 

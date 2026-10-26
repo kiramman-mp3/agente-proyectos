@@ -22,13 +22,13 @@ class Settings:
     database_url: str = os.getenv("DATABASE_URL", "").strip()
 
     # Correo para retrasos críticos: "smtp" (Gmail con contraseña de aplicación), "apps_script"
-    # (webhook HTTPS de Google Apps Script, necesario en Render gratuito que bloquea SMTP) o vacío (desactivado).
+    # (webhook HTTPS de Google Apps Script, útil donde el hosting bloquea SMTP) o vacío (desactivado).
     mail_transport: str = os.getenv("MAIL_TRANSPORT", "").strip().lower()
     smtp_host: str = os.getenv("SMTP_HOST", "smtp.gmail.com")
     smtp_port: int = int(os.getenv("SMTP_PORT", "465"))
     smtp_user: str = os.getenv("SMTP_USER", "")
     mail_webhook_url: str = os.getenv("MAIL_WEBHOOK_URL", "")
-    app_url: str = os.getenv("APP_URL", os.getenv("RENDER_EXTERNAL_URL", ""))
+    app_url: str = os.getenv("APP_URL", "")
 
     llm_provider: str = os.getenv("LLM_PROVIDER", "openrouter").strip().lower()
     model_executor: str = os.getenv("MODEL_EXECUTOR", "anthropic/claude-sonnet-4.5")
@@ -66,8 +66,30 @@ class Settings:
     report_day: str = os.getenv("REPORT_DAY", "mon")
     report_hour: int = int(os.getenv("REPORT_HOUR", "8"))
 
+    # Documentación interactiva (/docs): desactivada por defecto para no exponer el mapa de la API en producción.
+    docs_enabled: bool = os.getenv("ENABLE_DOCS", "false").strip().lower() == "true"
+
+    # Límite de intentos fallidos de inicio de sesión (por usuario y por IP) dentro de una ventana de tiempo.
+    login_max_attempts: int = int(os.getenv("LOGIN_MAX_ATTEMPTS", "5"))
+    login_window_seconds: int = int(os.getenv("LOGIN_WINDOW_SECONDS", "900"))
+
+    # Retención de datos (en días). 0 desactiva la purga. La bitácora de auditoría se conserva por defecto.
+    audit_retention_days: int = int(os.getenv("AUDIT_RETENTION_DAYS", "0"))
+    snapshot_retention_days: int = int(os.getenv("SNAPSHOT_RETENTION_DAYS", "90"))
+    changes_retention_days: int = int(os.getenv("CHANGES_RETENTION_DAYS", "180"))
+    notification_retention_days: int = int(os.getenv("NOTIFICATION_RETENTION_DAYS", "90"))
+
     policy_path: Path = BASE_DIR / "policy.json"
     standards_path: Path = BASE_DIR / "standards.md"
+
+
+    def validate(self) -> None:
+        """Falla al arrancar si falta una configuración imprescindible, en lugar de dar errores 500 más tarde."""
+        missing = [n for n, v in (("MASTER_KEY", self.master_key), ("JWT_SECRET", self.jwt_secret)) if not v]
+        if missing:
+            raise RuntimeError(f"Faltan variables de entorno obligatorias: {', '.join(missing)}")
+        if len(self.jwt_secret) < 32:
+            raise RuntimeError("JWT_SECRET debe tener al menos 32 caracteres")
 
 
 settings = Settings()

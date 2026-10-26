@@ -7,7 +7,7 @@
 cd backend
 python -m venv .venv
 .venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt     # incluye requirements.txt y pytest
 
 # App móvil
 cd ..\mobile
@@ -27,7 +27,7 @@ cd backend
 pytest
 ```
 
-Son **28 pruebas** que no necesitan red: usan una base SQLite temporal por prueba, un Trello simulado y modelos de
+Son **41 pruebas** que no necesitan red: usan una base SQLite temporal por prueba, un Trello simulado y modelos de
 IA simulados. Cubren:
 
 *   estados, riesgo, dependencias, avance y detección de cambios;
@@ -36,7 +36,10 @@ IA simulados. Cubren:
 *   el flujo multiagente completo con aprobación del gestor;
 *   permisos por rol, usuarios y correo;
 *   reporte semanal y revisión de código que crea un *issue* sin tocar el código;
-*   el chat: contexto, recorte del historial y errores del proveedor.
+*   el chat: contexto, recorte del historial y errores del proveedor;
+*   el endurecimiento: límite de login, sesiones revocadas al cambiar la contraseña, `/docs` desactivado, arranque que
+    exige secretos, decisiones concurrentes (solo una gana), comentarios saneados, reserva de tareas entre instancias
+    y purga de datos.
 
 Para probar también contra PostgreSQL: `TEST_DATABASE_URL=<url> pytest`. Cada prueba usa un esquema temporal que
 se elimina al terminar.
@@ -45,11 +48,21 @@ se elimina al terminar.
 
 ```bash
 cd mobile
-npm run typecheck
+npm run typecheck     # TypeScript en modo estricto
+npm run lint          # ESLint (expo lint)
+npm test              # Jest (jest-expo): 12 pruebas
 npx expo export --platform android    # comprueba que el bundle compila (genera mobile/dist, ignorado por git)
 ```
 
-No hay pruebas automatizadas de interfaz: se verifica a mano en Expo Go, un emulador o WSA.
+Las pruebas están en `mobile/__tests__/` (fuera de `src/app/`, para que Expo Router no las tome como rutas) y cubren
+el cliente de la API (sesión, token renovado al cambiar la contraseña, cierre de sesión por `401`, tiempos máximos de
+espera) y los colores y formatos del tema. No hay pruebas automatizadas de interfaz: se verifica a mano en Expo Go,
+un emulador o WSA.
+
+### Integración continua
+
+`.github/workflows/ci.yml` ejecuta en cada push y pull request: `pytest` (Python 3.11) para el backend y
+`typecheck`, `lint` y `test` para la app (Node 20). Un cambio no debería llegar a `main` con la CI en rojo.
 
 ## Flujo de ramas
 
