@@ -2,7 +2,7 @@
   "expo": {
     "name": "Agente de Proyectos",
     "slug": "agente-proyectos",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -11,7 +11,8 @@
       "bundleIdentifier": "ec.edu.uta.agenteproyectos",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
-      }
+      },
+      "buildNumber": "2"
     },
     "android": {
       "adaptiveIcon": {
@@ -21,7 +22,8 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "ec.edu.uta.agenteproyectos"
+      "package": "ec.edu.uta.agenteproyectos",
+      "versionCode": 2
     },
     "web": {
       "favicon": "./assets/favicon.png"
