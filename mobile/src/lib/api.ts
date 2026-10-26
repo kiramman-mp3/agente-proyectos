@@ -1,6 +1,8 @@
 import * as SecureStore from 'expo-secure-store';
 
-const SERVER_KEY = 'server_url';
+// Dirección fija del backend (Azure App Service): la app ya no pide el servidor al iniciar sesión.
+export const SERVER_URL = 'https://agente-proyectos.azurewebsites.net';
+const REMEMBERED_USER_KEY = 'remembered_username';
 const SESSION_KEY = 'session';
 
 export type Role = 'gestor' | 'desarrollador' | 'admin' | 'observador';
@@ -156,7 +158,6 @@ export class ApiError extends Error {
   }
 }
 
-let cachedServer: string | null = null;
 let cachedSession: Session | null = null;
 let onUnauthorized: (() => void) | null = null;
 
@@ -164,9 +165,13 @@ export function setUnauthorizedHandler(fn: () => void) {
   onUnauthorized = fn;
 }
 
-export async function getServerUrl(): Promise<string | null> {
-  if (cachedServer === null) cachedServer = await SecureStore.getItemAsync(SERVER_KEY);
-  return cachedServer;
+export async function getRememberedUsername(): Promise<string | null> {
+  return SecureStore.getItemAsync(REMEMBERED_USER_KEY);
+}
+
+export async function setRememberedUsername(username: string | null) {
+  if (username) await SecureStore.setItemAsync(REMEMBERED_USER_KEY, username);
+  else await SecureStore.deleteItemAsync(REMEMBERED_USER_KEY);
 }
 
 export async function loadSession(): Promise<Session | null> {
@@ -187,9 +192,8 @@ export async function clearSession() {
   await SecureStore.deleteItemAsync(SESSION_KEY);
 }
 
-async function request<T>(path: string, init: RequestInit = {}, server?: string): Promise<T> {
-  const base = (server ?? (await getServerUrl()) ?? '').replace(/\/+$/, '');
-  if (!base) throw new ApiError(0, 'Configura la dirección del servidor');
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const base = SERVER_URL.replace(/\/+$/, '');
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (cachedSession) headers.Authorization = `Bearer ${cachedSession.token}`;
 
@@ -207,16 +211,13 @@ async function request<T>(path: string, init: RequestInit = {}, server?: string)
   return body as T;
 }
 
-export async function login(server: string, username: string, password: string): Promise<Session> {
-  const url = server.trim().replace(/\/+$/, '');
+export async function login(username: string, password: string): Promise<Session> {
   cachedSession = null;
   const session = await request<Session>('/auth/login', {
     method: 'POST',
     body: JSON.stringify({ username, password }),
-  }, url);
-  await SecureStore.setItemAsync(SERVER_KEY, url);
+  });
   await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(session));
-  cachedServer = url;
   cachedSession = session;
   return session;
 }
