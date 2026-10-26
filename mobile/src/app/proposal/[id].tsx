@@ -117,7 +117,7 @@ export default function ProposalDetail() {
         <Card>
           <Title>Decisión y ejecución</Title>
           {p.manager && <Body>Decidido por {p.manager} el {fmtDate(p.decided_at, true)}</Body>}
-          {p.manager_comment && <Body muted>"{p.manager_comment}"</Body>}
+          {p.manager_comment && <Body muted>&quot;{p.manager_comment}&quot;</Body>}
           {p.execution_result && <Body>Resultado: {p.execution_result}</Body>}
         </Card>
       )}

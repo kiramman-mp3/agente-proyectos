@@ -30,8 +30,13 @@ export const SERVER_URL = 'https://agente-proyectos.azurewebsites.net';
 ```
 
 La pantalla de login ya no pide el servidor. Para apuntar la app a otro backend (por ejemplo uno local en
-`http://192.168.1.10:8000`), cambia esa constante. Si usas HTTP sin cifrar en Android, el `app.json` ya habilita
-`usesCleartextTraffic`; en producción usa HTTPS y desactiva esa opción.
+`http://192.168.1.10:8000`), cambia esa constante. La app **no permite HTTP sin cifrar** en Android
+(`usesCleartextTraffic: false` en `app.json`); para probar contra un backend local por HTTP, activa esa opción solo
+mientras desarrollas y vuelve a desactivarla antes de generar un APK para otras personas.
+
+Cada petición tiene un **tiempo máximo de espera** (30 s; 150 s para el chat) y, si se agota, la app muestra un
+mensaje claro en lugar de quedarse cargando. Si el servidor responde `401`, la sesión se cierra; al cambiar la
+contraseña, la app guarda el token nuevo que devuelve el servidor.
 
 La sesión (token JWT) y el usuario recordado se guardan con **Expo SecureStore**. La contraseña nunca se guarda.
 
@@ -43,6 +48,8 @@ npm install
 npx expo start            # Expo Go: escanea el QR con el teléfono en la misma red
 npm run android           # emulador o dispositivo Android con adb
 npm run typecheck         # verificación de tipos
+npm run lint              # ESLint
+npm test                  # pruebas con Jest
 ```
 
 *   La vista web (`npm run web`) **no funciona**: falta `react-native-web` y `expo-secure-store` no existe en web.

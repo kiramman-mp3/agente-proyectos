@@ -18,7 +18,7 @@ proyecto.
 
 ## 🔗 Enlaces del Proyecto
 
-*   **API del Servidor (Azure App Service):** [https://agente-proyectos.azurewebsites.net](https://agente-proyectos.azurewebsites.net) · estado en [`/health`](https://agente-proyectos.azurewebsites.net/health) · documentación interactiva en [`/docs`](https://agente-proyectos.azurewebsites.net/docs)
+*   **API del Servidor (Azure App Service):** [https://agente-proyectos.azurewebsites.net](https://agente-proyectos.azurewebsites.net) · estado en [`/health`](https://agente-proyectos.azurewebsites.net/health)
 *   **Descarga de la Aplicación Móvil (Android e iOS):** [Descargar el último APK e IPA (Releases)](https://github.com/kiramman-mp3/agente-proyectos/releases)
 *   **Repositorio:** [github.com/kiramman-mp3/agente-proyectos](https://github.com/kiramman-mp3/agente-proyectos)
 *   **Documentación técnica:** carpeta [`docs/`](./docs/README.md)
@@ -47,7 +47,7 @@ aprobar. Todo queda registrado en una bitácora de auditoría con fecha, hora y 
 *   **Asistente conversacional (solo lectura):** chat flotante en la app para preguntar «¿qué está retrasado?» o «¿qué propuestas esperan mi decisión?» con los datos ya sincronizados.
 *   **Proveedor de IA con respaldo:** OpenRouter como principal y Gemini como respaldo automático si el principal falla por cuota, saturación o credencial ausente. Se pueden usar modelos gratuitos.
 *   **Notificaciones y correo:** avisos en la app y correo a los gestores ante retrasos, bloqueos o fallos críticos.
-*   **Seguridad:** credenciales cifradas con Fernet, contraseñas con PBKDF2-SHA256, sesiones JWT, roles (gestor y desarrollador) y contraseña temporal obligatoria de cambiar en el primer ingreso.
+*   **Seguridad:** credenciales cifradas con Fernet, contraseñas con PBKDF2-SHA256, sesiones JWT que se revocan al cambiar o restablecer la contraseña, límite de intentos de login, roles (gestor y desarrollador), contraseña temporal obligatoria de cambiar y decisiones del gestor atómicas (una acción nunca se ejecuta dos veces).
 *   **App móvil adaptable:** tema claro y oscuro, interfaz que se centra en tablets y ventanas grandes y orientación libre.
 
 ---
@@ -61,17 +61,19 @@ aprobar. Todo queda registrado en una bitácora de auditoría con fecha, hora y 
 *   **Cifrado de credenciales:** `cryptography` (Fernet)
 *   **Planificador:** `APScheduler` (análisis de retrasos, revisión de código y reporte semanal)
 *   **IA:** OpenRouter y API de Gemini (ambas compatibles con OpenAI) vía `httpx`
-*   **Pruebas:** `pytest` (28 pruebas)
+*   **Pruebas:** `pytest` (41 pruebas)
 
 ### Aplicación Móvil
 *   **React Native** y **Expo 57** con **TypeScript**
 *   **Expo Router** (navegación basada en archivos)
 *   **Expo SecureStore** (sesión y usuario recordado en el almacenamiento seguro del teléfono)
+*   **Jest** (`jest-expo`) para las pruebas, ESLint y TypeScript en modo estricto
 *   **Schibsted Grotesk** (`@expo-google-fonts`) como tipografía de la app
 *   **EAS Build** para generar el APK de Android y el IPA sin firmar para iOS
 
 ### Infraestructura
-*   **Azure App Service** (Linux, plan B1, Python 3.11, Always On)
+*   **Azure App Service** (Linux, plan B1, Python 3.11, Always On, solo HTTPS)
+*   **GitHub Actions** (CI de backend y app; despliegue opcional a Azure)
 *   **Neon** (PostgreSQL gestionado)
 *   **Google Apps Script** como relé HTTPS de correo
 
@@ -176,7 +178,8 @@ python -m app.cli check                           # prueba Trello, GitHub y los 
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-La documentación interactiva de la API queda en `http://localhost:8000/docs`.
+Para ver la documentación interactiva de la API en local, agrega `ENABLE_DOCS=true` al `.env`: queda en
+`http://localhost:8000/docs`. En producción está desactivada.
 
 ### 3. Levantar la App Móvil
 ```bash
@@ -216,6 +219,8 @@ Las más importantes del backend (la lista completa está en [`docs/configuracio
 | `GITHUB_REPO` / `GITHUB_BRANCH` | Repositorio (`usuario/repo`) y rama a revisar | *(Requerida)* / `main` |
 | `TIMEZONE` | Zona horaria de los reportes y tareas | `America/Guayaquil` |
 | `MAIL_TRANSPORT` | `smtp`, `apps_script` o vacío (sin correo) | *(vacío)* |
+| `ENABLE_DOCS` | Publica `/docs` y `/openapi.json` (solo para desarrollo) | `false` |
+| `LOGIN_MAX_ATTEMPTS` / `LOGIN_WINDOW_SECONDS` | Intentos fallidos de login permitidos por usuario y ventana de tiempo | `5` / `900` |
 | `ANALYSIS_INTERVAL_MINUTES` | Cada cuántos minutos se analizan los retrasos | `60` |
 | `CODE_REVIEW_INTERVAL_HOURS` | Cada cuántas horas se revisa el código | `24` |
 | `REPORT_DAY` / `REPORT_HOUR` | Día y hora del reporte semanal | `mon` / `8` |
@@ -226,7 +231,7 @@ Las más importantes del backend (la lista completa está en [`docs/configuracio
 
 ### Backend (`/backend`)
 *   `uvicorn app.main:app --host 0.0.0.0 --port 8000`: inicia la API.
-*   `pytest`: ejecuta las pruebas.
+*   `pytest`: ejecuta las pruebas (instala antes `pip install -r requirements-dev.txt`).
 *   `python -m app.cli check`: prueba las conexiones con Trello, GitHub y los tres modelos.
 *   `python -m app.cli run analisis|codigo|reporte|sync`: ejecuta un proceso manualmente.
 *   `python -m app.cli secrets | set-secret | create-user | set-password | gen-key`: administración de credenciales y usuarios.
@@ -234,7 +239,7 @@ Las más importantes del backend (la lista completa está en [`docs/configuracio
 ### Móvil (`/mobile`)
 *   `npm start`: inicia Expo (Metro).
 *   `npm run android` / `npm run ios`: abre la app en un emulador o dispositivo.
-*   `npm run typecheck`: verifica los tipos con TypeScript.
+*   `npm run typecheck`, `npm run lint` y `npm test`: tipos, ESLint y pruebas con Jest.
 *   `npm run build:apk`: genera el APK con EAS.
 
 ---
@@ -253,12 +258,15 @@ Las más importantes del backend (la lista completa está en [`docs/configuracio
 *   [x] Rediseño de la app, ícono propio y diseño adaptable a tablet.
 *   [x] Asistente conversacional de solo lectura con botón flotante.
 *   [x] Proveedor de IA de respaldo automático.
+*   [x] Endurecimiento: límite de intentos de login, sesiones revocables, solo HTTPS, decisiones atómicas, `/docs` desactivado en producción y comentarios automáticos saneados.
+*   [x] Purga automática de datos antiguos y tareas programadas seguras con varias instancias.
+*   [x] Integración continua (pytest, tipos, lint y Jest) y flujo opcional de despliegue a Azure.
 
 ### Mejoras Futuras 🚀
 *   [ ] Guardar el historial del chat entre sesiones.
 *   [ ] Que el asistente pueda proponer acciones (siempre con aprobación del gestor).
-*   [ ] Despliegue automático del backend a Azure con GitHub Actions.
 *   [ ] Notificaciones push en el teléfono.
+*   [ ] Actualizar a Expo SDK 58 para cerrar las vulnerabilidades que quedan en herramientas de compilación.
 *   [ ] Soporte para más gestores de tareas además de Trello.
 
 ---

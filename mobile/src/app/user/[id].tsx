@@ -1,5 +1,5 @@
 import { useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Alert } from 'react-native';
 
 import { Field, Segmented, showTemporaryPassword } from '@/components/Form';
@@ -19,13 +19,16 @@ export default function UserDetail() {
   const [role, setRole] = useState<Role>('desarrollador');
   const [busy, setBusy] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (u) {
-      setFullName(u.full_name ?? '');
-      setEmail(u.email ?? '');
-      setRole(u.role === 'admin' ? 'gestor' : u.role === 'observador' ? 'desarrollador' : u.role);
-    }
-  }, [u]);
+  // Rellena el formulario cuando llegan (o cambian) los datos del usuario. Se hace durante el render, comparando una
+  // firma de los datos, en lugar de en un efecto, para no provocar un render extra.
+  const signature = u ? JSON.stringify([u.id, u.full_name, u.email, u.role]) : null;
+  const [syncedWith, setSyncedWith] = useState<string | null>(null);
+  if (u && signature !== syncedWith) {
+    setSyncedWith(signature);
+    setFullName(u.full_name ?? '');
+    setEmail(u.email ?? '');
+    setRole(u.role === 'admin' ? 'gestor' : u.role === 'observador' ? 'desarrollador' : u.role);
+  }
 
   if (!u && !error) return <Loading />;
   if (!u) return <Screen><ErrorBox message={error ?? 'Usuario no encontrado'} /></Screen>;

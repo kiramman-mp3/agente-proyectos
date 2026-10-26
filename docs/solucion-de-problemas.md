@@ -31,6 +31,25 @@ credenciales con la clave nueva.
 ### Las sesiones se cierran solas tras un redespliegue
 Cambió `JWT_SECRET`. Mantén el mismo valor entre despliegues.
 
+### La sesión se cerró después de cambiar o restablecer una contraseña
+Es lo esperado: cambiar o restablecer la contraseña, cambiar el rol o desactivar al usuario invalida sus tokens
+anteriores. Al cambiar la propia contraseña desde la app, la sesión actual se mantiene con un token nuevo.
+
+### «Demasiados intentos fallidos. Intenta de nuevo en N min.» (429)
+Se superó el límite de intentos de login (5 por usuario en 15 minutos). Espera el tiempo indicado; un login correcto
+reinicia el contador. Ajusta `LOGIN_MAX_ATTEMPTS` y `LOGIN_WINDOW_SECONDS` si hace falta.
+
+### `/docs` responde 404
+Es intencional: la documentación interactiva está desactivada en producción. Actívala en local con
+`ENABLE_DOCS=true`.
+
+### El backend no arranca: «Faltan variables de entorno obligatorias»
+Define `MASTER_KEY` y `JWT_SECRET` (este último con 32 caracteres o más).
+
+### Al aprobar una propuesta aparece «no está pendiente de decisión» (409)
+Otra decisión llegó antes (por ejemplo, otro gestor o un doble toque). Actualiza la lista: la acción ya se resolvió
+una sola vez.
+
 ### El login responde «Usuario o contraseña incorrectos» con el usuario inicial
 `BOOTSTRAP_USERNAME` y `BOOTSTRAP_PASSWORD` solo crean el usuario si **no existe**. Si ya existía y su contraseña se
 cambió desde la app, la del entorno ya no vale. Un gestor puede restablecerla desde **Usuarios**
