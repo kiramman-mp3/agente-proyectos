@@ -1,0 +1,65 @@
+# Publica el backend en Azure App Service al hacer push a main (o manualmente desde la pestaña Actions).
+#
+# Requiere el secreto AZURE_WEBAPP_PUBLISH_PROFILE (perfil de publicación de la aplicación web).
+# Sin ese secreto el flujo solo ejecuta las pruebas y avisa; no falla.
+# Cómo crearlo: docs/despliegue-azure.md, sección «Automatizar el despliegue».
+name: Deploy backend (Azure)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/deploy-azure.yml"
+
+concurrency:
+  group: deploy-azure
+  cancel-in-progress: false
+
+env:
+  AZURE_WEBAPP_NAME: agente-proyectos
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      HAS_PROFILE: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+      - name: Pruebas antes de publicar
+        working-directory: backend
+        run: |
+          pip install -r requirements-dev.txt
+          pytest -q
+
+      - name: Sin perfil de publicación
+        if: env.HAS_PROFILE != 'true'
+        run: echo "::warning::Falta el secreto AZURE_WEBAPP_PUBLISH_PROFILE; no se publicó en Azure."
+
+      - name: Publicar en Azure
+        if: env.HAS_PROFILE == 'true'
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: backend
+
+      - name: Esperar a que el servicio responda
+        if: env.HAS_PROFILE == 'true'
+        run: |
+          # La compilación en Azure (Oryx) puede tardar varios minutos tras el despliegue.
+          for i in $(seq 1 40); do
+            if curl -fsS --max-time 30 "https://${AZURE_WEBAPP_NAME}.azurewebsites.net/health/ready"; then
+              echo; echo "Servicio disponible"; exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::El servicio no respondió tras el despliegue"; exit 1
