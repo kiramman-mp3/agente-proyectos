@@ -34,6 +34,17 @@ class Settings:
     model_executor: str = os.getenv("MODEL_EXECUTOR", "anthropic/claude-sonnet-4.5")
     model_reviewer: str = os.getenv("MODEL_REVIEWER", "openai/gpt-4.1-mini")
     model_approver: str = os.getenv("MODEL_APPROVER", "openai/gpt-4.1-mini")
+    # Proveedor de respaldo: se usa solo si el principal falla. Cada proveedor nombra distinto sus modelos.
+    llm_fallback_provider: str = os.getenv("LLM_FALLBACK_PROVIDER", "").strip().lower()
+    fallback_model_executor: str = os.getenv("FALLBACK_MODEL_EXECUTOR", "")
+    fallback_model_reviewer: str = os.getenv("FALLBACK_MODEL_REVIEWER", "")
+    fallback_model_approver: str = os.getenv("FALLBACK_MODEL_APPROVER", "")
+
+    def fallback_model(self, model: str) -> str:
+        """Modelo equivalente del proveedor de respaldo para un modelo del principal (por rol)."""
+        by_role = {self.model_executor: self.fallback_model_executor, self.model_reviewer: self.fallback_model_reviewer,
+                   self.model_approver: self.fallback_model_approver}
+        return by_role.get(model) or self.fallback_model_reviewer or self.fallback_model_executor
 
     trello_board_id: str = os.getenv("TRELLO_BOARD_ID", "")
     lists_pending: list[str] = _list("LISTS_PENDING", "Pendiente,Por hacer,To Do,Backlog")

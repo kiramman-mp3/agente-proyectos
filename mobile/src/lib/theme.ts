@@ -1,36 +1,46 @@
 import { useColorScheme } from 'react-native';
 
+// Paleta "papel y sello": papel verdoso, tinta de pino y bermellón reservado para retrasos y peligro.
 const light = {
-  bg: '#F4F5F7',
-  card: '#FFFFFF',
-  text: '#172B4D',
-  muted: '#5E6C84',
-  border: '#DFE1E6',
-  primary: '#0C66E4',
-  primaryText: '#FFFFFF',
-  success: '#1F845A',
-  warning: '#B65C02',
-  danger: '#C9372C',
-  info: '#0C66E4',
-  neutral: '#626F86',
-  track: '#DFE1E6',
+  bg: '#ECEFE8',
+  card: '#F9FAF6',
+  text: '#12251F',
+  muted: '#58675F',
+  border: '#CBD3C9',
+  primary: '#0F6B57',
+  primaryText: '#F9FAF6',
+  success: '#0F6B57',
+  warning: '#9A6200',
+  danger: '#C23B22',
+  info: '#2F5F86',
+  neutral: '#6F7D75',
+  track: '#D5DCD2',
 };
 
 const dark: typeof light = {
-  bg: '#1D2125',
-  card: '#22272B',
-  text: '#DEE4EA',
-  muted: '#9FADBC',
-  border: '#38414A',
-  primary: '#579DFF',
-  primaryText: '#1D2125',
-  success: '#4BCE97',
-  warning: '#F5CD47',
-  danger: '#F87168',
-  info: '#579DFF',
-  neutral: '#8C9BAB',
-  track: '#38414A',
+  bg: '#0D1814',
+  card: '#14221C',
+  text: '#E4EBE5',
+  muted: '#97A79D',
+  border: '#2A3B33',
+  primary: '#5FC5A4',
+  primaryText: '#0D1814',
+  success: '#5FC5A4',
+  warning: '#E3B04B',
+  danger: '#F0735C',
+  info: '#7AAEDB',
+  neutral: '#82918A',
+  track: '#2A3B33',
 };
+
+/** Schibsted Grotesk: con fuentes personalizadas el grosor se elige por familia, no por fontWeight. */
+export const F = {
+  regular: { fontFamily: 'SchibstedGrotesk_400Regular' },
+  semi: { fontFamily: 'SchibstedGrotesk_600SemiBold' },
+  bold: { fontFamily: 'SchibstedGrotesk_800ExtraBold' },
+} as const;
+
+export const RADIUS = { card: 6, control: 8, stamp: 4 } as const;
 
 export type Theme = typeof light;
 
