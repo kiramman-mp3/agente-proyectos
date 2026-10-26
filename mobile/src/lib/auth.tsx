@@ -5,7 +5,7 @@ import { clearSession, loadSession, login as apiLogin, Session, setUnauthorizedH
 type AuthState = {
   session: Session | null;
   loading: boolean;
-  login: (server: string, username: string, password: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   canDecide: boolean;
   passwordChanged: () => Promise<void>;
@@ -27,8 +27,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loadSession().then(setSession).finally(() => setLoading(false));
   }, [logout]);
 
-  const login = useCallback(async (server: string, username: string, password: string) => {
-    setSession(await apiLogin(server, username, password));
+  const login = useCallback(async (username: string, password: string) => {
+    setSession(await apiLogin(username, password));
   }, []);
 
   const passwordChanged = useCallback(async () => {
