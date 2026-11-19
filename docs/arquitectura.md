@@ -8,8 +8,8 @@ avisa por correo a los gestores.
 
 ```mermaid
 graph TD
-    Mobile[App móvil Expo] -->|HTTPS + JWT| API[FastAPI en Azure App Service]
-    API -->|psycopg| DB[(PostgreSQL Neon)]
+    Mobile[App móvil Expo] -->|HTTPS + JWT| API[FastAPI en el homelab]
+    API -->|psycopg| DB[(PostgreSQL)]
     API --> Orq[Orquestador]
     Orq --> Exe[Agente Ejecutor]
     Orq --> Rev[Agente Revisor]
@@ -94,6 +94,6 @@ programa nada (así corren las pruebas).
     descartar lo que proponga el Ejecutor.
 *   **Proveedor de IA intercambiable.** OpenRouter y Gemini comparten el formato de la API de OpenAI, y un
     proveedor de respaldo cubre los fallos del principal.
-*   **Estado fuera del servidor.** La base vive en Neon, por lo que reiniciar o redesplegar el backend no pierde
+*   **Estado fuera del servidor.** La base vive en un contenedor con volumen propio, por lo que reiniciar o redesplegar el backend no pierde
     propuestas, reportes ni usuarios.
 *   **Chat de solo lectura.** El asistente no tiene herramientas: recibe un resumen de los datos y solo responde.

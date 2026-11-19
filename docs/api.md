@@ -13,7 +13,7 @@ referencia para producción.
 5. Tras 5 intentos fallidos (`LOGIN_MAX_ATTEMPTS`) en 15 minutos (`LOGIN_WINDOW_SECONDS`) para un mismo usuario, `POST /auth/login` responde `429` con la cabecera `Retry-After` aunque la contraseña sea correcta. También hay un límite por IP, cuatro veces mayor.
 
 ```bash
-curl -s https://agente-proyectos.azurewebsites.net/auth/login \
+curl -s https://agente.madebyjohan.xyz/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"<usuario>","password":"<contraseña>"}'
 ```
