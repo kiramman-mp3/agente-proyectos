@@ -26,7 +26,7 @@ El **botón flotante** de chat aparece en la esquina inferior derecha de las cin
 La dirección del servidor es una **constante** en `mobile/src/lib/api.ts`:
 
 ```ts
-export const SERVER_URL = 'https://agente-proyectos.azurewebsites.net';
+export const SERVER_URL = 'https://agente.madebyjohan.xyz';
 ```
 
 La pantalla de login ya no pide el servidor. Para apuntar la app a otro backend (por ejemplo uno local en

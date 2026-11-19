@@ -18,7 +18,7 @@ proyecto.
 
 ## 🔗 Enlaces del Proyecto
 
-*   **API del Servidor (Azure App Service):** [https://agente-proyectos.azurewebsites.net](https://agente-proyectos.azurewebsites.net) · estado en [`/health`](https://agente-proyectos.azurewebsites.net/health)
+*   **API del Servidor (homelab):** [https://agente.madebyjohan.xyz](https://agente.madebyjohan.xyz) · estado en [`/health`](https://agente.madebyjohan.xyz/health)
 *   **Descarga de la Aplicación Móvil (Android e iOS):** [Descargar el último APK e IPA (Releases)](https://github.com/kiramman-mp3/agente-proyectos/releases)
 *   **Repositorio:** [github.com/kiramman-mp3/agente-proyectos](https://github.com/kiramman-mp3/agente-proyectos)
 *   **Documentación técnica:** carpeta [`docs/`](./docs/README.md)
@@ -56,7 +56,7 @@ aprobar. Todo queda registrado en una bitácora de auditoría con fecha, hora y 
 
 ### Backend
 *   **Python 3.11** con **FastAPI** y **Uvicorn** (API REST)
-*   **PostgreSQL** (Neon) en producción y **SQLite** en local, con `psycopg` y pool de conexiones
+*   **PostgreSQL** en producción y **SQLite** en local, con `psycopg` y pool de conexiones
 *   **Autenticación:** JWT (`PyJWT`) y hashing PBKDF2-SHA256
 *   **Cifrado de credenciales:** `cryptography` (Fernet)
 *   **Planificador:** `APScheduler` (análisis de retrasos, revisión de código y reporte semanal)
@@ -72,9 +72,8 @@ aprobar. Todo queda registrado en una bitácora de auditoría con fecha, hora y 
 *   **EAS Build** para generar el APK de Android y el IPA sin firmar para iOS
 
 ### Infraestructura
-*   **Azure App Service** (Linux, plan B1, Python 3.11, Always On, solo HTTPS)
-*   **GitHub Actions** (CI de backend y app; despliegue opcional a Azure)
-*   **Neon** (PostgreSQL gestionado)
+*   **Homelab** (Debian, Docker Compose, Python 3.11, PostgreSQL 18; HTTPS con Cloudflare Tunnel)
+*   **GitHub Actions** (CI de backend y app)
 *   **Google Apps Script** como relé HTTPS de correo
 
 ---
@@ -83,8 +82,8 @@ aprobar. Todo queda registrado en una bitácora de auditoría con fecha, hora y 
 
 ```mermaid
 graph TD
-    Mobile[App móvil Expo] -->|HTTPS + JWT| API[FastAPI en Azure App Service]
-    API -->|psycopg| DB[(PostgreSQL Neon)]
+    Mobile[App móvil Expo] -->|HTTPS + JWT| API[FastAPI en el homelab]
+    API -->|psycopg| DB[(PostgreSQL)]
     API --> Orq[Orquestador]
     Orq --> Exe[Agente Ejecutor]
     Orq --> Rev[Agente Revisor]
@@ -253,8 +252,8 @@ Las más importantes del backend (la lista completa está en [`docs/configuracio
 *   [x] Reporte semanal automático.
 *   [x] Bitácora de auditoría, notificaciones en la app y correo a los gestores.
 *   [x] Gestión de usuarios y roles desde la app, con contraseña temporal.
-*   [x] Base de datos persistente en PostgreSQL (Neon).
-*   [x] Backend en Azure App Service con Always On.
+*   [x] Base de datos persistente en PostgreSQL.
+*   [x] Backend en el homelab con Docker Compose y Cloudflare Tunnel.
 *   [x] Rediseño de la app, ícono propio y diseño adaptable a tablet.
 *   [x] Asistente conversacional de solo lectura con botón flotante.
 *   [x] Proveedor de IA de respaldo automático.

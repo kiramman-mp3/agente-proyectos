@@ -1,7 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 
-// Dirección fija del backend (Azure App Service): la app ya no pide el servidor al iniciar sesión.
-export const SERVER_URL = 'https://agente-proyectos.azurewebsites.net';
+// Dirección fija del backend (homelab, Cloudflare Tunnel): la app ya no pide el servidor al iniciar sesión.
+export const SERVER_URL = 'https://agente.madebyjohan.xyz';
 const REMEMBERED_USER_KEY = 'remembered_username';
 const SESSION_KEY = 'session';
 
