@@ -1,5 +1,9 @@
 # Despliegue en Azure
 
+> **Obsoleto (2026-11-19):** el backend ya no corre en Azure. Ahora está en un homelab con Docker Compose y
+> Cloudflare Tunnel, en <https://agente.madebyjohan.xyz>, y los recursos de Azure se eliminaron. Esta guía queda como
+> referencia.
+
 El backend corre en **Azure App Service (Linux)**. La base de datos está fuera de Azure, en **Neon** (PostgreSQL
 gestionado), así que redesplegar la aplicación no pierde datos.
 
